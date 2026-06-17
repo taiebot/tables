@@ -249,10 +249,10 @@ export default {
 .tables-content-widget {
     min-height: max(50vh, 200px);
     height: 50vh;
-    overflow: auto; // scroll naturel
+    overflow: auto;
 
     & .header {
-        position: static; // plus de sticky
+        position: static;
         top: auto;
         inset-inline-start: auto;
         z-index: auto;
@@ -289,7 +289,7 @@ export default {
         }
 
         :where(thead) {
-            position: static; // plus de sticky
+            position: static;
             top: auto;
 
             :where(.cell-wrapper) {
