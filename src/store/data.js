@@ -93,28 +93,19 @@ export const useDataStore = defineStore('data', {
 		},
 
 		async loadColumnsFromBE({ view, tableId }) {
-			let allColumns = await this.getColumnsFromBE({ tableId, viewId: view?.id })
-			if (view) {
-				// Transform array to object for faster access
-				const columnSettingsMap = view.columnSettings?.reduce((acc, item) => {
-					acc[item.columnId] = item
-					return acc
-				}, {}) ?? {}
-
-				allColumns = allColumns.concat(MetaColumns.filter(col => columnSettingsMap[col.id]))
-				if (view.columnSettings) {
-					allColumns = allColumns.sort((a, b) => {
-						const orderA = columnSettingsMap[a.id]?.order ?? Number.MAX_SAFE_INTEGER
-						const orderB = columnSettingsMap[b.id]?.order ?? Number.MAX_SAFE_INTEGER
-						return orderA - orderB
-					})
-				}
-			} else {
-				// no view: keep the backend-ordered result (ColumnService::findAllByTable already applies columnOrder)
-			}
-			const stateId = genStateKey(!!(view?.id), view?.id ?? tableId)
-			this.columns[stateId] = allColumns
-			return true
+		    let allColumns = await this.getColumnsFromBE({ tableId, viewId: view?.id })
+		    if (view) {
+		        allColumns = allColumns.sort((a, b) => {
+		            const orderA = a.viewColumnInformation?.order ?? Number.MAX_SAFE_INTEGER
+		            const orderB = b.viewColumnInformation?.order ?? Number.MAX_SAFE_INTEGER
+		            return orderA - orderB
+		        })
+		    } else {
+		        // no view: keep the backend-ordered result (ColumnService::findAllByTable already applies columnOrder)
+		    }
+		    const stateId = genStateKey(!!(view?.id), view?.id ?? tableId)
+		    this.columns[stateId] = allColumns
+		    return true
 		},
 
 		async loadPublicColumnsFromBE({ token }) {
