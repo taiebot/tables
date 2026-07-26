@@ -42,7 +42,7 @@
 			@cancel="rowToDelete = null" />
 	</div>
 </template>
- 
+
 <script>
 import NcTable from '../shared/components/ncTable/NcTable.vue'
 import Options from '../shared/components/ncTable/sections/Options.vue'
@@ -52,11 +52,21 @@ import permissionsMixin from '../shared/components/ncTable/mixins/permissionsMix
 import { NcLoadingIcon } from '@nextcloud/vue'
 import { useResizeObserver } from '@vueuse/core'
 import { spawnDialog } from '@nextcloud/vue/functions/dialog'
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { useTablesStore } from '../store/store.js'
 import { useDataStore } from '../store/data.js'
- 
+
+// Row/column CRUD events emitted by data.js -- both the main Tables app and
+// this widget go through the same data.js actions (even though they run on
+// separate Pinia instances), so listening here gives real-time updates
+// whenever a row or column changes anywhere: from the main app's grid, from
+// another copy of this widget, etc. -- without polling or requiring a
+// manual refresh.
+const ROW_EVENTS = ['tables:row:create', 'tables:row:update', 'tables:row:delete']
+const COLUMN_EVENTS = ['tables:column:create', 'tables:column:update', 'tables:column:delete']
+
 export default {
- 
+
 	components: {
 		NcTable,
 		Options,
@@ -64,9 +74,9 @@ export default {
 		DeleteRows,
 		NcLoadingIcon,
 	},
- 
+
 	mixins: [permissionsMixin],
- 
+
 	props: {
 		richObjectType: {
 			type: String,
@@ -81,7 +91,7 @@ export default {
 			default: true,
 		},
 	},
- 
+
 	data() {
 		return {
 			searchExp: null,
@@ -96,7 +106,7 @@ export default {
 			loaded: false,
 		}
 	},
- 
+
 	computed: {
 		isView() {
 			return Boolean(this.richObject?.type)
@@ -140,7 +150,7 @@ export default {
 			return this.dataStore ? this.dataStore.getColumns(this.isView, this.richObject.id) : []
 		},
 	},
- 
+
 	watch: {
 		// Covers "refresh": if the parent re-resolves the reference and swaps in
 		// a new richObject (same or different id) without remounting this
@@ -153,20 +163,31 @@ export default {
 			},
 		},
 	},
- 
+
 	async mounted() {
 		useResizeObserver(this.$el, (entries) => {
 			const entry = entries[0]
 			const { width } = entry.contentRect
 			this.$el.style.setProperty('--widget-content-width', `${width}px`)
 		})
- 
+
 		this.tablesStore = useTablesStore()
 		this.dataStore = useDataStore()
- 
+
+		ROW_EVENTS.forEach(event => subscribe(event, this.onRowChanged))
+		COLUMN_EVENTS.forEach(event => subscribe(event, this.onColumnChanged))
+
 		await this.reload()
 	},
- 
+
+	// NOTE: if this component runs under Vue 3's Options API, rename this hook
+	// to `unmounted()`. Left as `beforeDestroy` to match the rest of this file's
+	// Vue 2-style lifecycle usage -- adjust if your build is Vue 3.
+	beforeDestroy() {
+		ROW_EVENTS.forEach(event => unsubscribe(event, this.onRowChanged))
+		COLUMN_EVENTS.forEach(event => unsubscribe(event, this.onColumnChanged))
+	},
+
 	methods: {
 		// Builds the { tableId } or { viewId } payload loadRowsFromBE expects,
 		// based on whether richObject is a table or a view.
@@ -174,6 +195,22 @@ export default {
 			return this.isView
 				? { viewId: this.richObject.id }
 				: { tableId: this.richObject.id }
+		},
+		// True if an emitted row/column event refers to this exact table/view.
+		matchesThisElement(payload) {
+			return !!payload
+				&& payload.isView === this.isView
+				&& String(payload.elementId) === String(this.richObject.id)
+		},
+		onRowChanged(payload) {
+			if (this.matchesThisElement(payload)) {
+				this.loadRows()
+			}
+		},
+		onColumnChanged(payload) {
+			if (this.matchesThisElement(payload)) {
+				this.loadColumns()
+			}
 		},
 		search(searchString) {
 			this.searchExp = (searchString !== '')
@@ -188,7 +225,9 @@ export default {
 				isView: this.isView,
 				elementId: this.richObject.id,
 			}, async () => {
-				// Reload rows from the backend to get the latest data
+				// Reload rows from the backend to get the latest data. (data.js's
+				// insertNewRow also emits tables:row:create, so onRowChanged above
+				// will fire this again too -- harmless, just a duplicate fetch.)
 				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
@@ -226,11 +265,6 @@ export default {
 			if (!this.dataStore) return
 			try {
 				if (this.isView) {
-					// Best-effort: loadColumnsFromBE only needs view.id for the
-					// fetch itself; it uses view.columnSettings (if present) purely
-					// to order/filter columns for that view. richObject won't carry
-					// columnSettings, so ordering here relies on the backend's own
-					// findAllByView() order.
 					await this.dataStore.loadColumnsFromBE({ view: this.richObject })
 				} else {
 					await this.dataStore.loadColumnsFromBE({ tableId: this.richObject.id })
@@ -251,14 +285,18 @@ export default {
 
 	.tables-content-widget {
 		min-height: max(50vh, 200px);
-		height: 50vh;
+		height: auto;
+		max-height: calc(100dvh - 40px);
 		overflow: scroll;
+		overscroll-behavior: contain;
+		isolation: isolate;
 
 		& .header {
 			position: sticky;
 			top: 0;
 			inset-inline-start: 0;
-			z-index: 1;
+			z-index: 7;
+			background-color: var(--color-main-background);
 
 			:where(.options) {
 				position: sticky;
@@ -287,8 +325,11 @@ export default {
 		.nc-table {
 			min-width: var(--widget-content-width);
 
-			:where(.options.row) {
-				display: none;
+			:deep(.options.row) {
+				height: 0 !important;
+				overflow: hidden !important;
+				margin: 0 !important;
+				padding: 0 !important;
 			}
 
 			:where(thead) {
