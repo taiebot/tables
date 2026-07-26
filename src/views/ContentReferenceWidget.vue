@@ -62,8 +62,13 @@ import { useDataStore } from '../store/data.js'
 // whenever a row or column changes anywhere: from the main app's grid, from
 // another copy of this widget, etc. -- without polling or requiring a
 // manual refresh.
-const ROW_EVENTS = ['tables:row:create', 'tables:row:update', 'tables:row:delete']
-const COLUMN_EVENTS = ['tables:column:create', 'tables:column:update', 'tables:column:delete']
+// NOTE: these are past-tense ("created"/"updated"/"deleted") deliberately --
+// TableView.vue already emits 'tables:row:create'/'tables:row:delete'/
+// 'tables:column:create'/'tables:column:delete' as imperative "open the
+// modal" signals when the user clicks a button, with a different payload
+// shape. Don't reuse those names here.
+const ROW_EVENTS = ['tables:row:created', 'tables:row:updated', 'tables:row:deleted']
+const COLUMN_EVENTS = ['tables:column:created', 'tables:column:updated', 'tables:column:deleted']
 
 export default {
 
@@ -226,8 +231,8 @@ export default {
 				elementId: this.richObject.id,
 			}, async () => {
 				// Reload rows from the backend to get the latest data. (data.js's
-				// insertNewRow also emits tables:row:create, so onRowChanged above
-				// will fire this again too -- harmless, just a duplicate fetch.)
+				// insertNewRow also emits tables:row:created, so onRowChanged
+				// above will fire this again too -- harmless, just a duplicate fetch.)
 				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
@@ -285,7 +290,7 @@ export default {
 
 	.tables-content-widget {
 		min-height: max(50vh, 200px);
-		height: auto;
+		height: 60vh;
 		max-height: calc(100dvh - 40px);
 		overflow: scroll;
 		overscroll-behavior: contain;
