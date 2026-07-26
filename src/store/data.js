@@ -93,19 +93,37 @@ export const useDataStore = defineStore('data', {
 		},
 
 		async loadColumnsFromBE({ view, tableId }) {
-		    let allColumns = await this.getColumnsFromBE({ tableId, viewId: view?.id })
-		    if (view) {
-		        allColumns = allColumns.sort((a, b) => {
-		            const orderA = a.viewColumnInformation?.order ?? Number.MAX_SAFE_INTEGER
-		            const orderB = b.viewColumnInformation?.order ?? Number.MAX_SAFE_INTEGER
-		            return orderA - orderB
-		        })
-		    } else {
-		        // no view: keep the backend-ordered result (ColumnService::findAllByTable already applies columnOrder)
-		    }
-		    const stateId = genStateKey(!!(view?.id), view?.id ?? tableId)
-		    this.columns[stateId] = allColumns
-		    return true
+			let allColumns = await this.getColumnsFromBE({ tableId, viewId: view?.id })
+			if (view) {
+				// Meta columns (e.g. id, created-by) aren't real DB columns and
+				// never come back from the backend fetch above -- append any
+				// that this view has settings for, same as before.
+				const columnSettingsMap = view.columnSettings?.reduce((acc, item) => {
+					acc[item.columnId] = item
+					return acc
+				}, {}) ?? {}
+				allColumns = allColumns.concat(MetaColumns.filter(col => columnSettingsMap[col.id]))
+
+				// Sort using each column's own viewColumnInformation (set
+				// server-side by ColumnService::enhanceColumn(), same field the
+				// public-share load path already relies on) as the primary
+				// source, falling back to columnSettingsMap for synthetic meta
+				// columns that were just concatenated above and never went
+				// through server-side enhancement. This keeps ordering correct
+				// even for callers that can't supply a full view.columnSettings
+				// array (e.g. the embedded reference widget), while preserving
+				// existing behavior for callers that can.
+				allColumns = allColumns.sort((a, b) => {
+					const orderA = a.viewColumnInformation?.order ?? columnSettingsMap[a.id]?.order ?? Number.MAX_SAFE_INTEGER
+					const orderB = b.viewColumnInformation?.order ?? columnSettingsMap[b.id]?.order ?? Number.MAX_SAFE_INTEGER
+					return orderA - orderB
+				})
+			} else {
+				// no view: keep the backend-ordered result (ColumnService::findAllByTable already applies columnOrder)
+			}
+			const stateId = genStateKey(!!(view?.id), view?.id ?? tableId)
+			this.columns[stateId] = allColumns
+			return true
 		},
 
 		async loadPublicColumnsFromBE({ token }) {
@@ -150,6 +168,9 @@ export const useDataStore = defineStore('data', {
 				this.columns[stateId].push(parseCol(res.data))
 				this.loading[stateId] = false
 			}
+
+			emit('tables:column:created', { isView, elementId, column: res.data })
+
 			return true
 		},
 
@@ -172,6 +193,8 @@ export const useDataStore = defineStore('data', {
 				this.columns[stateId][index] = parseCol(col)
 			}
 
+			emit('tables:column:updated', { isView, elementId, column: res.data })
+
 			return true
 		},
 
@@ -188,6 +211,8 @@ export const useDataStore = defineStore('data', {
 				const filteredColumns = this.columns[stateId].filter(c => c.id !== id)
 				this.columns[stateId] = filteredColumns
 			}
+
+			emit('tables:column:deleted', { isView, elementId, columnId: id })
 
 			return true
 		},
@@ -291,6 +316,8 @@ export const useDataStore = defineStore('data', {
 				await this.removeRowIfNotInView({ rowId: row?.id, viewId, stateId })
 			}
 
+			emit('tables:row:updated', { isView, elementId, row: res.data })
+
 			return true
 		},
 
@@ -330,6 +357,8 @@ export const useDataStore = defineStore('data', {
 				this.rows[stateId][newIndex] = row
 				await this.removeRowIfNotInView({ rowId: row?.id, viewId, stateId })
 			}
+
+			emit('tables:row:created', { isView: !!viewId, elementId: viewId ?? tableId, row: res?.data?.ocs?.data })
 
 			return true
 		},
@@ -377,6 +406,9 @@ export const useDataStore = defineStore('data', {
 				const filteredRows = this.rows[stateId].filter(r => r.id !== rowId)
 				this.rows[stateId] = filteredRows
 			}
+
+			emit('tables:row:deleted', { isView, elementId, rowId })
+
 			return true
 		},
 
