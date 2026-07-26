@@ -6,7 +6,7 @@
 	<div v-if="richObject" class="tables-content-widget" data-cy="contentReferenceWidget">
 		<div class="header">
 			<h2>
-				<NcLoadingIcon v-if="!rows" :size="30" />
+				<NcLoadingIcon v-if="!loaded" :size="30" />
 				<span v-else>{{ richObject.emoji }}</span> {{ richObject.title }}
 			</h2>
 			<Options
@@ -16,20 +16,20 @@
 				@create-row="createRow"
 				@set-search-string="search" />
 		</div>
-		<div v-if="rows && rows.length > 0" class="nc-table">
+		<div v-if="loaded && rows.length > 0" class="nc-table">
 			<NcTable
 				:rows="filteredRows"
-				:columns="richObject.columns"
+				:columns="columns"
 				:element-id="richObject.id"
-				:is-view="Boolean(richObject.type)"
+				:is-view="isView"
 				v-bind="tablePermissions"
 				@edit-row="editRow"
 				@copy-row="copyRow"
 				@delete-row="deleteRow" />
 		</div>
 		<CreateRow
-			:columns="richObject.columns"
-			:is-view="Boolean(richObject.type)"
+			:columns="columns"
+			:is-view="isView"
 			:element-id="richObject.id"
 			:show-modal="showCopyRow"
 			:prefill-data="copyPrefillData"
@@ -38,11 +38,11 @@
 			v-if="rowToDelete !== null"
 			:rows-to-delete="[rowToDelete]"
 			:element-id="richObject.id"
-			:is-view="Boolean(richObject.type)"
+			:is-view="isView"
 			@cancel="rowToDelete = null" />
 	</div>
 </template>
-
+ 
 <script>
 import NcTable from '../shared/components/ncTable/NcTable.vue'
 import Options from '../shared/components/ncTable/sections/Options.vue'
@@ -54,9 +54,9 @@ import { useResizeObserver } from '@vueuse/core'
 import { spawnDialog } from '@nextcloud/vue/functions/dialog'
 import { useTablesStore } from '../store/store.js'
 import { useDataStore } from '../store/data.js'
-
+ 
 export default {
-
+ 
 	components: {
 		NcTable,
 		Options,
@@ -64,9 +64,9 @@ export default {
 		DeleteRows,
 		NcLoadingIcon,
 	},
-
+ 
 	mixins: [permissionsMixin],
-
+ 
 	props: {
 		richObjectType: {
 			type: String,
@@ -81,20 +81,26 @@ export default {
 			default: true,
 		},
 	},
-
+ 
 	data() {
 		return {
 			searchExp: null,
-			localRows: [], // Keep as fallback only
 			showCopyRow: false,
 			copyPrefillData: null,
 			rowToDelete: null,
 			tablesStore: null,
 			dataStore: null,
+			// True once the initial backend fetch for rows+columns has completed.
+			// Nothing in this component reads richObject.rows/richObject.columns
+			// as data any more -- they're only ever used for id/type/title/emoji.
+			loaded: false,
 		}
 	},
-
+ 
 	computed: {
+		isView() {
+			return Boolean(this.richObject?.type)
+		},
 		tablePermissions() {
 			return {
 				canCreateRows: this.canCreateRowInElement(this.richObject),
@@ -123,60 +129,52 @@ export default {
 				return this.rows
 			}
 		},
-		getRows() {
-			return this.dataStore ? this.dataStore.getRows(false, this.richObject.id) : []
-		},
-		// Use computed property to get rows from store or richObject
+		// Store is the ONLY source of truth for rows/columns. No fallback to
+		// richObject.rows / richObject.columns -- those are just a snapshot frozen
+		// at reference-resolution time and can be arbitrarily stale (old column
+		// order, missing newly created rows, etc.).
 		rows() {
-			// First try to get from the store
-			const storeRows = this.getRows
-			if (storeRows && storeRows.length > 0) {
-				return storeRows
-			}
-			// Fallback to richObject rows or local rows
-			return this.richObject?.rows || this.localRows
+			return this.dataStore ? this.dataStore.getRows(this.isView, this.richObject.id) : []
+		},
+		columns() {
+			return this.dataStore ? this.dataStore.getColumns(this.isView, this.richObject.id) : []
 		},
 	},
-
+ 
 	watch: {
+		// Covers "refresh": if the parent re-resolves the reference and swaps in
+		// a new richObject (same or different id) without remounting this
+		// component, refetch from the backend rather than trusting whatever
+		// richObject now contains.
 		richObject: {
 			deep: true,
-			handler(newVal) {
-				if (newVal && newVal.rows && this.localRows !== newVal.rows) {
-					this.localRows = newVal.rows
-				}
-			},
-		},
-		rows: {
-			deep: true,
-			handler(newRows) {
-				if (this.richObject && newRows) {
-					/* eslint-disable vue/no-mutating-props */
-					this.richObject.rows = newRows
-					this.richObject.rowsCount = newRows.length
-					/* eslint-enable vue/no-mutating-props */
-				}
-				// Force update of filteredRows when rows change
-				this.search(this.searchExp ? this.searchExp.source : '')
+			handler() {
+				this.reload()
 			},
 		},
 	},
-
+ 
 	async mounted() {
 		useResizeObserver(this.$el, (entries) => {
 			const entry = entries[0]
 			const { width } = entry.contentRect
-			// In Vue 3 $el can be a fragment/comment node (no style), so guard it.
-			this.$el?.style?.setProperty?.('--widget-content-width', `${width}px`)
+			this.$el.style.setProperty('--widget-content-width', `${width}px`)
 		})
-
+ 
 		this.tablesStore = useTablesStore()
 		this.dataStore = useDataStore()
-
-		await this.loadRows()
+ 
+		await this.reload()
 	},
-
+ 
 	methods: {
+		// Builds the { tableId } or { viewId } payload loadRowsFromBE expects,
+		// based on whether richObject is a table or a view.
+		elementIdPayload() {
+			return this.isView
+				? { viewId: this.richObject.id }
+				: { tableId: this.richObject.id }
+		},
 		search(searchString) {
 			this.searchExp = (searchString !== '')
 				? new RegExp(searchString.trim(), 'ig')
@@ -186,28 +184,24 @@ export default {
 			const { default: CreateRow } = await import('../modules/modals/CreateRow.vue')
 			spawnDialog(CreateRow, {
 				showModal: true,
-				columns: this.richObject.columns,
-				isView: Boolean(this.richObject.type),
+				columns: this.columns,
+				isView: this.isView,
 				elementId: this.richObject.id,
 			}, async () => {
 				// Reload rows from the backend to get the latest data
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
 		async editRow(rowId) {
 			const { default: EditRow } = await import('../modules/modals/EditRow.vue')
 			spawnDialog(EditRow, {
 				showModal: true,
-				columns: this.richObject.columns,
+				columns: this.columns,
 				row: this.getRow(rowId),
-				isView: Boolean(this.richObject.type),
+				isView: this.isView,
 				element: this.richObject,
 			}, async () => {
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
 		copyRow(rowId) {
@@ -222,25 +216,33 @@ export default {
 		},
 		async loadRows() {
 			if (!this.dataStore) return
-
-			if (this.richObject.rows) {
-				this.localRows = this.richObject.rows
-				this.dataStore.seedRows({
-					isView: Boolean(this.richObject.type),
-					elementId: this.richObject.id,
-					rows: this.richObject.rows,
-				})
-				return
-			}
-
 			try {
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
-				// No need to set local rows as the computed property will use store data
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			} catch (error) {
 				console.error('Error loading rows:', error)
 			}
+		},
+		async loadColumns() {
+			if (!this.dataStore) return
+			try {
+				if (this.isView) {
+					// Best-effort: loadColumnsFromBE only needs view.id for the
+					// fetch itself; it uses view.columnSettings (if present) purely
+					// to order/filter columns for that view. richObject won't carry
+					// columnSettings, so ordering here relies on the backend's own
+					// findAllByView() order.
+					await this.dataStore.loadColumnsFromBE({ view: this.richObject })
+				} else {
+					await this.dataStore.loadColumnsFromBE({ tableId: this.richObject.id })
+				}
+			} catch (error) {
+				console.error('Error loading columns:', error)
+			}
+		},
+		async reload() {
+			this.loaded = false
+			await Promise.all([this.loadRows(), this.loadColumns()])
+			this.loaded = true
 		},
 	},
 }
