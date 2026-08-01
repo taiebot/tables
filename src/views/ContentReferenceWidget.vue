@@ -155,13 +155,6 @@ export default {
 	},
  
 	watch: {
-		// TEMP DEBUG -- remove before merging
-		localViewSetting: {
-			deep: true,
-			handler(newVal) {
-				console.log('[widget] localViewSetting changed:', JSON.parse(JSON.stringify(newVal)))
-			},
-		},
 		richObject: {
 			deep: true,
 			handler(newVal) {
