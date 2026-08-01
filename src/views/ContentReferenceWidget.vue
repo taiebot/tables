@@ -1,3 +1,4 @@
+
 <!--
   - SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
   - SPDX-License-Identifier: AGPL-3.0-or-later
@@ -22,7 +23,6 @@
 				:columns="columns"
 				:element-id="richObject.id"
 				:is-view="isView"
-				v-model:view-setting="localViewSetting"
 				v-bind="tablePermissions"
 				@edit-row="editRow"
 				@copy-row="copyRow"
@@ -278,14 +278,18 @@ export default {
 
 	.tables-content-widget {
 		min-height: max(50vh, 200px);
-		height: 50vh;
+		height: auto;
+		max-height: calc(100dvh - 40px);
 		overflow: scroll;
+		overscroll-behavior: contain;
+		isolation: isolate;
 
 		& .header {
 			position: sticky;
 			top: 0;
 			inset-inline-start: 0;
-			z-index: 1;
+			z-index: 7;
+			background-color: var(--color-main-background);
 
 			:where(.options) {
 				position: sticky;
@@ -314,8 +318,11 @@ export default {
 		.nc-table {
 			min-width: var(--widget-content-width);
 
-			:where(.options.row) {
-				display: none;
+			:deep(.options.row) {
+				height: 0 !important;
+				overflow: hidden !important;
+				margin: 0 !important;
+				padding: 0 !important;
 			}
 
 			:where(thead) {
