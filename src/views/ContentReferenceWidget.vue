@@ -1,4 +1,3 @@
-
 <!--
   - SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
   - SPDX-License-Identifier: AGPL-3.0-or-later
@@ -23,6 +22,7 @@
 				:columns="columns"
 				:element-id="richObject.id"
 				:is-view="isView"
+				v-model:view-setting="localViewSetting"
 				v-bind="tablePermissions"
 				@edit-row="editRow"
 				@copy-row="copyRow"
@@ -87,6 +87,7 @@ export default {
 		return {
 			searchExp: null,
 			localRows: [], // Keep as fallback only
+			localViewSetting: {},
 			showCopyRow: false,
 			copyPrefillData: null,
 			rowToDelete: null,
