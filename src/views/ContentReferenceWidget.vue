@@ -1,4 +1,3 @@
-
 <!--
   - SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
   - SPDX-License-Identifier: AGPL-3.0-or-later
@@ -23,6 +22,7 @@
 				:columns="columns"
 				:element-id="richObject.id"
 				:is-view="isView"
+				v-model:view-setting="localViewSetting"
 				v-bind="tablePermissions"
 				@edit-row="editRow"
 				@copy-row="copyRow"
@@ -155,6 +155,13 @@ export default {
 	},
  
 	watch: {
+		// TEMP DEBUG -- remove before merging
+		localViewSetting: {
+			deep: true,
+			handler(newVal) {
+				console.log('[widget] localViewSetting changed:', JSON.parse(JSON.stringify(newVal)))
+			},
+		},
 		richObject: {
 			deep: true,
 			handler(newVal) {
