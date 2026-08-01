@@ -1,3 +1,4 @@
+
 <!--
   - SPDX-FileCopyrightText: 2023 Nextcloud GmbH and Nextcloud contributors
   - SPDX-License-Identifier: AGPL-3.0-or-later
@@ -19,17 +20,17 @@
 		<div v-if="rows && rows.length > 0" class="nc-table">
 			<NcTable
 				:rows="filteredRows"
-				:columns="richObject.columns"
+				:columns="columns"
 				:element-id="richObject.id"
-				:is-view="Boolean(richObject.type)"
+				:is-view="isView"
 				v-bind="tablePermissions"
 				@edit-row="editRow"
 				@copy-row="copyRow"
 				@delete-row="deleteRow" />
 		</div>
 		<CreateRow
-			:columns="richObject.columns"
-			:is-view="Boolean(richObject.type)"
+			:columns="columns"
+			:is-view="isView"
 			:element-id="richObject.id"
 			:show-modal="showCopyRow"
 			:prefill-data="copyPrefillData"
@@ -38,11 +39,11 @@
 			v-if="rowToDelete !== null"
 			:rows-to-delete="[rowToDelete]"
 			:element-id="richObject.id"
-			:is-view="Boolean(richObject.type)"
+			:is-view="isView"
 			@cancel="rowToDelete = null" />
 	</div>
 </template>
-
+ 
 <script>
 import NcTable from '../shared/components/ncTable/NcTable.vue'
 import Options from '../shared/components/ncTable/sections/Options.vue'
@@ -54,9 +55,9 @@ import { useResizeObserver } from '@vueuse/core'
 import { spawnDialog } from '@nextcloud/vue/functions/dialog'
 import { useTablesStore } from '../store/store.js'
 import { useDataStore } from '../store/data.js'
-
+ 
 export default {
-
+ 
 	components: {
 		NcTable,
 		Options,
@@ -64,9 +65,9 @@ export default {
 		DeleteRows,
 		NcLoadingIcon,
 	},
-
+ 
 	mixins: [permissionsMixin],
-
+ 
 	props: {
 		richObjectType: {
 			type: String,
@@ -81,7 +82,7 @@ export default {
 			default: true,
 		},
 	},
-
+ 
 	data() {
 		return {
 			searchExp: null,
@@ -93,8 +94,11 @@ export default {
 			dataStore: null,
 		}
 	},
-
+ 
 	computed: {
+		isView() {
+			return Boolean(this.richObject?.type)
+		},
 		tablePermissions() {
 			return {
 				canCreateRows: this.canCreateRowInElement(this.richObject),
@@ -124,7 +128,7 @@ export default {
 			}
 		},
 		getRows() {
-			return this.dataStore ? this.dataStore.getRows(false, this.richObject.id) : []
+			return this.dataStore ? this.dataStore.getRows(this.isView, this.richObject.id) : []
 		},
 		// Use computed property to get rows from store or richObject
 		rows() {
@@ -136,8 +140,19 @@ export default {
 			// Fallback to richObject rows or local rows
 			return this.richObject?.rows || this.localRows
 		},
+		getColumns() {
+			return this.dataStore ? this.dataStore.getColumns(this.isView, this.richObject.id) : []
+		},
+		// Prefer fresh store data over the (possibly stale) richObject snapshot
+		columns() {
+			const storeColumns = this.getColumns
+			if (storeColumns && storeColumns.length > 0) {
+				return storeColumns
+			}
+			return this.richObject?.columns || []
+		},
 	},
-
+ 
 	watch: {
 		richObject: {
 			deep: true,
@@ -161,7 +176,7 @@ export default {
 			},
 		},
 	},
-
+ 
 	async mounted() {
 		useResizeObserver(this.$el, (entries) => {
 			const entry = entries[0]
@@ -169,14 +184,20 @@ export default {
 			// In Vue 3 $el can be a fragment/comment node (no style), so guard it.
 			this.$el?.style?.setProperty?.('--widget-content-width', `${width}px`)
 		})
-
+ 
 		this.tablesStore = useTablesStore()
 		this.dataStore = useDataStore()
-
-		await this.loadRows()
+ 
+		await Promise.all([this.loadRows(), this.loadColumns()])
 	},
-
+ 
 	methods: {
+		// { tableId } or { viewId } payload for loadRowsFromBE
+		elementIdPayload() {
+			return this.isView
+				? { viewId: this.richObject.id }
+				: { tableId: this.richObject.id }
+		},
 		search(searchString) {
 			this.searchExp = (searchString !== '')
 				? new RegExp(searchString.trim(), 'ig')
@@ -186,28 +207,24 @@ export default {
 			const { default: CreateRow } = await import('../modules/modals/CreateRow.vue')
 			spawnDialog(CreateRow, {
 				showModal: true,
-				columns: this.richObject.columns,
-				isView: Boolean(this.richObject.type),
+				columns: this.columns,
+				isView: this.isView,
 				elementId: this.richObject.id,
 			}, async () => {
 				// Reload rows from the backend to get the latest data
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
 		async editRow(rowId) {
 			const { default: EditRow } = await import('../modules/modals/EditRow.vue')
 			spawnDialog(EditRow, {
 				showModal: true,
-				columns: this.richObject.columns,
+				columns: this.columns,
 				row: this.getRow(rowId),
-				isView: Boolean(this.richObject.type),
+				isView: this.isView,
 				element: this.richObject,
 			}, async () => {
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 			})
 		},
 		copyRow(rowId) {
@@ -222,24 +239,35 @@ export default {
 		},
 		async loadRows() {
 			if (!this.dataStore) return
-
+ 
+			// Paint from cached snapshot immediately, but it can be stale --
+			// always reconcile with the backend below.
 			if (this.richObject.rows) {
 				this.localRows = this.richObject.rows
 				this.dataStore.seedRows({
-					isView: Boolean(this.richObject.type),
+					isView: this.isView,
 					elementId: this.richObject.id,
 					rows: this.richObject.rows,
 				})
-				return
 			}
-
+ 
 			try {
-				await this.dataStore.loadRowsFromBE({
-					tableId: this.richObject.id,
-				})
+				await this.dataStore.loadRowsFromBE(this.elementIdPayload())
 				// No need to set local rows as the computed property will use store data
 			} catch (error) {
 				console.error('Error loading rows:', error)
+			}
+		},
+		async loadColumns() {
+			if (!this.dataStore) return
+			try {
+				if (this.isView) {
+					await this.dataStore.loadColumnsFromBE({ view: this.richObject })
+				} else {
+					await this.dataStore.loadColumnsFromBE({ tableId: this.richObject.id })
+				}
+			} catch (error) {
+				console.error('Error loading columns:', error)
 			}
 		},
 	},
