@@ -8,6 +8,7 @@
 namespace OCA\Tables\Analytics;
 
 use OCA\Analytics\Datasource\IDatasource;
+use OCA\Tables\Constants\UsergroupType;
 use OCA\Tables\Db\Column;
 use OCA\Tables\Errors\InternalError;
 use OCA\Tables\Errors\NotFoundError;
@@ -265,7 +266,9 @@ class AnalyticsDatasource implements IDatasource {
 			Column::TYPE_SELECTION => $this->formatSelectionValue($column, $this->parseDefaultValue($column->getSelectionDefault())),
 			Column::TYPE_TEXT => $this->formatTextValue($column, $column->getTextDefault() ?? ''),
 			Column::TYPE_DATETIME => $this->formatDatetimeDefaultValue($column),
-			Column::TYPE_USERGROUP => $this->formatUsergroupValue($this->parseDefaultValue($column->getUsergroupDefault())),
+			Column::TYPE_USERGROUP => $column->isUsergroupDefaultCurrentUser()
+				? $this->formatUsergroupValue([['id' => $this->userId, 'type' => UsergroupType::USER]])
+				: $this->formatUsergroupValue($this->parseDefaultValue($column->getUsergroupDefault())),
 			default => '',
 		};
 	}

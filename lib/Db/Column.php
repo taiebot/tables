@@ -269,8 +269,20 @@ class Column extends EntitySuper implements JsonSerializable {
 		return $column;
 	}
 
+	/**
+	 * Magic placeholder value for usergroupDefault that means
+	 * "default to the current user creating the row", resolved dynamically
+	 * per request instead of being a fixed user/group/circle id.
+	 *
+	 * Reuses the same `@me` convention already used for magic fields/filters.
+	 */
+	public const USERGROUP_DEFAULT_CURRENT_USER = '@me';
+
 	public function getUsergroupDefaultArray():array {
 		$default = $this->getUsergroupDefault();
+		if ($default === self::USERGROUP_DEFAULT_CURRENT_USER) {
+			return [];
+		}
 		if ($default !== '' && $default !== null) {
 			return \json_decode($default, true) ?? [];
 		} else {
@@ -281,6 +293,10 @@ class Column extends EntitySuper implements JsonSerializable {
 	public function setUsergroupDefaultArray(array $array):void {
 		$json = \json_encode($array);
 		$this->setUsergroup($json);
+	}
+
+	public function isUsergroupDefaultCurrentUser(): bool {
+		return $this->getUsergroupDefault() === self::USERGROUP_DEFAULT_CURRENT_USER;
 	}
 
 	public function getSelectionOptionsCollection(): SelectionOptions {
@@ -341,6 +357,7 @@ class Column extends EntitySuper implements JsonSerializable {
 
 			// type usergroup
 			'usergroupDefault' => $this->getUsergroupDefaultArray(),
+			'usergroupDefaultCurrentUser' => $this->isUsergroupDefaultCurrentUser(),
 			'usergroupMultipleItems' => $this->usergroupMultipleItems,
 			'usergroupSelectUsers' => $this->usergroupSelectUsers,
 			'usergroupSelectGroups' => $this->usergroupSelectGroups,

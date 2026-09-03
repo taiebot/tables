@@ -21,6 +21,14 @@
 			</div>
 
 			<div class="row space-T">
+				<div class="fix-col-4 title">
+					{{ t('tables', 'Use current user as default') }}
+				</div>
+				<div class="fix-col-4 space-L-small" data-cy="usergroupCurrentUserDefaultSwitch">
+					<NcCheckboxRadioSwitch v-model="currentUserAsDefault" type="switch" />
+				</div>
+			</div>
+			<div v-if="!currentUserAsDefault" class="row space-T">
 				<div class="fix-col-4">
 					{{ t('tables', 'Default') }}
 				</div>
@@ -85,6 +93,10 @@ export default {
 			selectUsers: this.column.usergroupSelectUsers,
 			selectGroups: this.column.usergroupSelectGroups,
 			selectCircles: false,
+			// Magic placeholder ('@me') that resolves to whoever creates the row,
+			// instead of a fixed set of users/groups/teams. Same convention as
+			// the `@me` magic field used for column/view filter values.
+			currentUserAsDefault: this.column.usergroupDefaultCurrentUser === true,
 			selectOptions: {
 				'usergroup-user': 'Users',
 				'usergroup-group': 'Groups',
@@ -137,6 +149,15 @@ export default {
 	watch: {
 		column() {
 			this.mutableColumn = this.column
+			this.currentUserAsDefault = this.column.usergroupDefaultCurrentUser === true
+		},
+		currentUserAsDefault(useCurrentUser) {
+			if (useCurrentUser) {
+				this.mutableColumn.usergroupDefault = '@me'
+			} else if (this.mutableColumn.usergroupDefault === '@me') {
+				this.mutableColumn.usergroupDefault = []
+				this.value = []
+			}
 		},
 	},
 	created() {

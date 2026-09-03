@@ -23,6 +23,7 @@
 
 <script>
 import { NcSelect } from '@nextcloud/vue'
+import { getCurrentUser } from '@nextcloud/auth'
 import RowFormWrapper from './RowFormWrapper.vue'
 import searchUserGroup from '../../../../mixins/searchUserGroup.js'
 import ShareTypes from '../../../../mixins/shareTypesMixin.js'
@@ -57,7 +58,12 @@ export default {
 			get() {
 				let value = this.value
 				if (!value || (Array.isArray(value) && value.length === 0)) {
-					value = this.column.usergroupDefault || []
+					if (this.column.usergroupDefaultCurrentUser) {
+						const currentUser = getCurrentUser()
+						value = [{ id: currentUser.uid, type: 0, displayName: currentUser.displayName }]
+					} else {
+						value = this.column.usergroupDefault || []
+					}
 				}
 				return (Array.isArray(value) ? value : []).map(item => ({
 					...(item ?? {}),

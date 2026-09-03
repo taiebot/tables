@@ -203,7 +203,11 @@ export const useDataStore = defineStore('data', {
 
 		async updateColumn({ id, isView, elementId, data }) {
 			data.selectionOptions = JSON.stringify(data.selectionOptions)
-			data.usergroupDefault = JSON.stringify(data.usergroupDefault)
+			// '@me' is a magic placeholder (resolved dynamically to whoever creates
+			// the row) and must be sent as-is, not JSON-encoded like a fixed value.
+			data.usergroupDefault = data.usergroupDefault === '@me'
+				? data.usergroupDefault
+				: JSON.stringify(data.usergroupDefault)
 			let res = null
 
 			try {

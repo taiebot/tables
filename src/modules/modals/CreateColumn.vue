@@ -390,7 +390,11 @@ export default {
 			} else if (this.column.type === 'datetime') {
 				data.datetimeDefault = this.column.datetimeDefault ? this.column.subtype === 'date' ? 'today' : 'now' : ''
 			} else if (this.column.type === 'usergroup') {
-				data.usergroupDefault = JSON.stringify(this.column.usergroupDefault)
+				// '@me' is a magic placeholder (resolved dynamically to whoever creates
+				// the row) and must be sent as-is, not JSON-encoded like a fixed value.
+				data.usergroupDefault = this.column.usergroupDefault === '@me'
+					? this.column.usergroupDefault
+					: JSON.stringify(this.column.usergroupDefault)
 				data.usergroupMultipleItems = this.column.usergroupMultipleItems
 				data.usergroupSelectUsers = this.column.usergroupSelectUsers
 				data.usergroupSelectGroups = this.column.usergroupSelectGroups

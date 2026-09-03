@@ -89,6 +89,7 @@ export class AbstractUsergroupColumn extends AbstractColumn {
 	constructor(data) {
 		super(data)
 		this.usergroupDefault = data.usergroupDefault
+		this.usergroupDefaultCurrentUser = data.usergroupDefaultCurrentUser
 	}
 
 	default() {
