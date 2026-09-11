@@ -302,65 +302,64 @@ class RowService extends SuperService {
 	 * the sanest to ensure the row is actually part of the view
 	 */
 	private function enhanceWithViewDefaults(?View $view, RowDataInput $data): RowDataInput {
-		if ($view === null) {
-			return $data;
-		}
-
-		$filters = $view->getFilterArray();
-		if (empty($filters)) {
-			return $data;
-		}
-
-		// The filter is a list of OR-groups, each containing a list of AND conditions
-		foreach ($filters as $filterGroup) {
-			if (!is_array($filterGroup)) {
-				continue;
-			}
-
-			// Process each filter within the group (OR conditions)
-			foreach ($filterGroup as $filter) {
-				if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
-					continue;
-				}
-
-				// Skip if the column is already visible in the view
-				if (in_array($filter['columnId'], $view->getColumnIds())) {
-					continue;
-				}
-
-				// For meta columns, we don't need to add them to the data since they are handled separately
-				if (Column::isValidMetaTypeId($filter['columnId'])) {
-					continue;
-				}
-
-				// Only handle simple equality filters for now
-				if ($filter['operator'] !== 'is-equal') {
-					continue;
-				}
-				
-				// Only set the default if the column hasn't been set yet
-				if (is_array($filter['value'])) {
-					continue;
-				}
-
-				try {
-					$column = $this->columnMapper->find($filter['columnId']);
-				} catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
-					$this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
-					continue;
-				}
-
-				// Resolve dynamic placeholders (e.g. "@me")
-				$resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
-				$parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
-				if ($parsedValue !== null) {
-					$data->add($filter['columnId'], $parsedValue);
-				}
-			}
-		}
-		return $data;
+	    if ($view === null) {
+	        return $data;
+	    }
+	
+	    $filters = $view->getFilterArray();
+	    if (empty($filters)) {
+	        return $data;
+	    }
+	
+	    // The filter is a list of OR-groups, each containing a list of AND conditions
+	    foreach ($filters as $filterGroup) {
+	        if (!is_array($filterGroup)) {
+	            continue;
+	        }
+	
+	        // Process each filter within the group (OR conditions)
+	        foreach ($filterGroup as $filter) {
+	            if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
+	                continue;
+	            }
+	
+	            // Skip if the column is already visible in the view
+	            if (in_array($filter['columnId'], $view->getColumnIds())) {
+	                continue;
+	            }
+	
+	            // For meta columns, we don't need to add them to the data since they are handled separately
+	            if (Column::isValidMetaTypeId($filter['columnId'])) {
+	                continue;
+	            }
+	
+	            // Only handle simple equality filters for now
+	            if ($filter['operator'] !== 'is-equal') {
+	                continue;
+	            }
+	
+	            if (is_array($filter['value'])) {
+	                continue;
+	            }
+	
+	            try {
+	                $column = $this->columnMapper->find($filter['columnId']);
+	            } catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
+	                $this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
+	                continue;
+	            }
+	
+	            // Resolve dynamic placeholders (e.g. "@me")
+	            $resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
+	            $parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
+	            if ($parsedValue !== null) {
+	                $data->add($filter['columnId'], $parsedValue);
+	            }
+	        }
+	    }
+	    return $data;
 	}
-
+	
 	/**
 	 * @return array<int, true>
 	 */
