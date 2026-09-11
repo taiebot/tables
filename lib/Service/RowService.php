@@ -311,14 +311,14 @@ class RowService extends SuperService {
 			return $data;
 		}
 
-		// Process each filter rule group (AND groups)
-		foreach ($filters as $filterRules) {
-			if (!is_array($filterRules)) {
+		// The filter is a list of OR-groups, each containing a list of AND conditions
+		foreach ($filters as $filterGroup) {
+			if (!is_array($filterGroup)) {
 				continue;
 			}
 
 			// Process each filter within the group (OR conditions)
-			foreach ($filterRules as $filter) {
+			foreach ($filterGroup as $filter) {
 				if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
 					continue;
 				}
@@ -334,13 +334,27 @@ class RowService extends SuperService {
 				}
 
 				// Only handle simple equality filters for now
-				if (!in_array($filter['operator'], ['is-equal', 'is-not-equal'])) {
+				if ($filter['operator'] !== 'is-equal') {
+					continue;
+				}
+				
+				// Only set the default if the column hasn't been set yet
+				if (is_array($filter['value'])) {
 					continue;
 				}
 
-				// Only set the default if the column hasn't been set yet
-				if (!$data->hasColumn($filter['columnId'])) {
-					$data->add($filter['columnId'], $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId));
+				try {
+					$column = $this->columnMapper->find($filter['columnId']);
+				} catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
+					$this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
+					continue;
+				}
+
+				// Resolve dynamic placeholders (e.g. "@me")
+				$resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
+				$parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
+				if ($parsedValue !== null) {
+					$data->add($filter['columnId'], $parsedValue);
 				}
 			}
 		}
