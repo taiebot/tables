@@ -311,29 +311,19 @@ class RowService extends SuperService {
 	        return $data;
 	    }
 	
-	    // The filter is a list of OR-groups, each containing a list of AND conditions
+	    // The filter is a list of OR-groups, each containing a list of AND conditions —
+	    // for defaulting purposes we just want every is-equal filter applied, so flatten them.
 	    foreach ($filters as $filterGroup) {
 	        if (!is_array($filterGroup)) {
 	            continue;
 	        }
 	
-	        // Process each filter within the group (OR conditions)
 	        foreach ($filterGroup as $filter) {
 	            if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
 	                continue;
 	            }
 	
-	            // Skip if the column is already visible in the view
-	            if (in_array($filter['columnId'], $view->getColumnIds())) {
-	                continue;
-	            }
-	
-	            // For meta columns, we don't need to add them to the data since they are handled separately
-	            if (Column::isValidMetaTypeId($filter['columnId'])) {
-	                continue;
-	            }
-	
-	            // Only handle simple equality filters for now
+	            // Only handle simple equality filters
 	            if ($filter['operator'] !== 'is-equal') {
 	                continue;
 	            }
