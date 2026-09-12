@@ -8,6 +8,7 @@
 namespace OCA\Tables\Service;
 
 use OCA\Tables\Activity\ActivityManager;
+use OCA\Tables\Constants\UsergroupType;
 use OCA\Tables\Db\Column;
 use OCA\Tables\Db\ColumnMapper;
 use OCA\Tables\Db\Row2;
@@ -302,54 +303,85 @@ class RowService extends SuperService {
 	 * the sanest to ensure the row is actually part of the view
 	 */
 	private function enhanceWithViewDefaults(?View $view, RowDataInput $data): RowDataInput {
-	    if ($view === null) {
-	        return $data;
-	    }
+		if ($view === null) {
+			return $data;
+		}
 	
-	    $filters = $view->getFilterArray();
-	    if (empty($filters)) {
-	        return $data;
-	    }
+		$filters = $view->getFilterArray();
+		if (empty($filters)) {
+			return $data;
+		}
 	
-	    // The filter is a list of OR-groups, each containing a list of AND conditions —
-	    // for defaulting purposes we just want every is-equal filter applied, so flatten them.
-	    foreach ($filters as $filterGroup) {
-	        if (!is_array($filterGroup)) {
-	            continue;
-	        }
+		// The filter is a list of OR-groups, each containing a list of AND conditions —
+		// for defaulting purposes we apply every is-equal filter we can resolve.
+		foreach ($filters as $filterGroup) {
+			if (!is_array($filterGroup)) {
+				continue;
+			}
 	
-	        foreach ($filterGroup as $filter) {
-	            if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
-	                continue;
-	            }
+			foreach ($filterGroup as $filter) {
+				if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
+					continue;
+				}
 	
-	            // Only handle simple equality filters
-	            if ($filter['operator'] !== 'is-equal') {
-	                continue;
-	            }
+				if ($filter['operator'] !== 'is-equal') {
+					continue;
+				}
 	
-	            if (is_array($filter['value'])) {
-	                continue;
-	            }
+				if (is_array($filter['value'])) {
+					continue;
+				}
 	
-	            try {
-	                $column = $this->columnMapper->find($filter['columnId']);
-	            } catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
-	                $this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
-	                continue;
-	            }
+				try {
+					$column = $this->columnMapper->find($filter['columnId']);
+				} catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
+					$this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
+					continue;
+				}
 	
-	            // Resolve dynamic placeholders (e.g. "@me")
-	            $resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
-	            $parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
-	            if ($parsedValue !== null) {
-	                $data->add($filter['columnId'], $parsedValue);
-	            }
-	        }
-	    }
-	    return $data;
+				// Resolve dynamic placeholders (e.g. "@me"). Passing $column matters:
+				// for a usergroup column this returns an array like
+				// ['user' => $userId, 'group' => [...]] instead of a plain string.
+				$resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
+	
+				if ($column->getType() === Column::TYPE_USERGROUP && is_array($resolvedValue)) {
+					$resolvedValue = $this->usergroupArrayToPairs($resolvedValue);
+				}
+	
+				$parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
+				if ($parsedValue !== null) {
+					$data->add($filter['columnId'], $parsedValue);
+				}
+			}
+		}
+		return $data;
 	}
 	
+	/**
+	 * Flattens a resolveSearchValue()-style usergroup map
+	 * (['user' => ..., 'group' => [...], 'circle' => [...]]) into the
+	 * {id, type} pair list expected by UsergroupBusiness::parseValue()/canBeParsed().
+	 *
+	 * @return array<int, array{id: string, type: int}>
+	 */
+	private function usergroupArrayToPairs(array $value): array {
+		$pairs = [];
+		$typeMap = [
+			UsergroupType::USER   => $value['user']   ?? null,
+			UsergroupType::GROUP  => $value['group']  ?? null,
+			UsergroupType::CIRCLE => $value['circle'] ?? null,
+		];
+		foreach ($typeMap as $type => $ids) {
+			if ($ids === null) {
+				continue;
+			}
+			foreach ((array)$ids as $id) {
+				$pairs[] = ['id' => $id, 'type' => $type];
+			}
+		}
+		return $pairs;
+	}
+
 	/**
 	 * @return array<int, true>
 	 */
