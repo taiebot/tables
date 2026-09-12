@@ -106,7 +106,7 @@ export default {
 			isReloading: false,
 			// 'stacked' (default, all resources listed one below the other) or
 			// 'cards' (a card picker on top, one resource shown at a time)
-			layoutMode: 'stacked',
+			layoutMode: 'cards',
 			activeResourceIndex: 0,
 		}
 	},
