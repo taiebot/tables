@@ -20,15 +20,30 @@
 			</div>
 
 			<div class="resources">
-				<div v-for="resource in contextResources" :key="resource.key">
-					<div v-if="!resource.isView" class="resource">
+				<NcCheckboxRadioSwitch v-if="contextResources.length > 1"
+					:checked="layoutMode === 'cards'"
+					class="resources__layout-toggle"
+					type="switch"
+					@update:checked="checked => layoutMode = checked ? 'cards' : 'stacked'">
+					{{ t('tables', 'Card view') }}
+				</NcCheckboxRadioSwitch>
+
+				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
+					:resources="contextResources"
+					:active-index="activeResourceIndex"
+					@update:active-index="index => activeResourceIndex = index" />
+
+				<div v-for="(resource, index) in contextResources"
+					v-show="layoutMode !== 'cards' || index === activeResourceIndex"
+					:key="resource.key">
+					<div v-if="!resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
 						<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
 							:view-setting="viewSetting" @create-column="createColumn(false, resource)"
 							@import-scheme="openImportSchemeModal(resource)"
 							@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
 							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
 					</div>
-					<div v-else-if="resource.isView" class="resource">
+					<div v-else-if="resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
 						<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
 							:view-setting="viewSetting" @create-column="createColumn(true, resource)"
 							@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
@@ -47,9 +62,10 @@
 <script>
 import MainModals from '../modules/modals/Modals.vue'
 import { mapState, mapActions, storeToRefs } from 'pinia'
-import { NcIconSvgWrapper } from '@nextcloud/vue'
+import { NcCheckboxRadioSwitch, NcIconSvgWrapper } from '@nextcloud/vue'
 import TableWrapper from '../modules/main/sections/TableWrapper.vue'
 import CustomView from '../modules/main/sections/View.vue'
+import ContextResourceCards from '../modules/main/sections/ContextResourceCards.vue'
 import { emit } from '@nextcloud/event-bus'
 import { NODE_TYPE_TABLE, NODE_TYPE_VIEW } from '../shared/constants.ts'
 import exportTableMixin from '../shared/components/ncTable/mixins/exportTableMixin.js'
@@ -63,10 +79,12 @@ import { showError } from '@nextcloud/dialogs'
 export default {
 	components: {
 		MainModals,
+		NcCheckboxRadioSwitch,
 		NcIconSvgWrapper,
 		ErrorMessage,
 		TableWrapper,
 		CustomView,
+		ContextResourceCards,
 	},
 
 	mixins: [exportTableMixin, svgHelper],
@@ -86,6 +104,10 @@ export default {
 			errorMessage: null,
 			loadedSignature: null,
 			isReloading: false,
+			// 'stacked' (default, all resources listed one below the other) or
+			// 'cards' (a card picker on top, one resource shown at a time)
+			layoutMode: 'stacked',
+			activeResourceIndex: 0,
 		}
 	},
 
@@ -148,6 +170,13 @@ export default {
 			},
 			immediate: true,
 		},
+		contextResources() {
+			// Keep the active card in range (e.g. after switching to a context
+			// with fewer resources, or once resources finish loading).
+			if (this.activeResourceIndex >= this.contextResources.length) {
+				this.activeResourceIndex = 0
+			}
+		},
 	},
 
 	async mounted() {
@@ -175,6 +204,7 @@ export default {
 			this.isReloading = true
 			this.loading = true
 			this.contextResources = []
+			this.activeResourceIndex = 0
 
 			try {
 				await this.loadContext({ id: this.activeContextId })
@@ -350,6 +380,12 @@ export default {
 	min-width: var(--app-content-width, 100%);
 }
 
+.resources__layout-toggle {
+	display: flex;
+	justify-content: flex-end;
+	padding: calc(2 * var(--default-grid-baseline, 4px)) 20px 0;
+}
+
 .resource {
 	margin: 40px 0;
 	width: max-content;
@@ -358,6 +394,15 @@ export default {
 	&:deep(.row.first-row) {
 		margin-inline-start: 0;
 		padding-inline-start: 20px;
+	}
+
+	// In card mode the picker above already shows the title and description,
+	// so avoid rendering them a second time inside the opened resource.
+	&--card-mode {
+		&:deep(.row.first-row),
+		&:deep(.element-description) {
+			display: none;
+		}
 	}
 }
 
