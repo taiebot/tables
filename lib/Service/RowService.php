@@ -306,49 +306,52 @@ class RowService extends SuperService {
 		if ($view === null) {
 			return $data;
 		}
-	
+
 		$filters = $view->getFilterArray();
 		if (empty($filters)) {
 			return $data;
 		}
-	
+
 		// The filter is a list of OR-groups, each containing a list of AND conditions —
 		// for defaulting purposes we apply every is-equal filter we can resolve.
 		foreach ($filters as $filterGroup) {
 			if (!is_array($filterGroup)) {
 				continue;
 			}
-	
+
 			foreach ($filterGroup as $filter) {
 				if (!is_array($filter) || !isset($filter['columnId'], $filter['operator'], $filter['value'])) {
 					continue;
 				}
-	
+
 				if ($filter['operator'] !== 'is-equal') {
 					continue;
 				}
-	
-				if (is_array($filter['value'])) {
-					continue;
-				}
-	
+
 				try {
 					$column = $this->columnMapper->find($filter['columnId']);
 				} catch (DoesNotExistException|MultipleObjectsReturnedException|Exception $e) {
 					$this->logger->debug('Could not resolve column ' . $filter['columnId'] . ' while computing view defaults for row creation', ['exception' => $e]);
 					continue;
 				}
-	
-				// Resolve dynamic placeholders (e.g. "@me"). Passing $column matters:
-				// for a usergroup column this returns an array like
-				// ['user' => $userId, 'group' => [...]] instead of a plain string.
-				$resolvedValue = $this->columnsHelper->resolveSearchValue((string)$filter['value'], $this->userId, $column);
-	
-				if ($column->getType() === Column::TYPE_USERGROUP && is_array($resolvedValue)) {
-					$resolvedValue = $this->usergroupArrayToPairs($resolvedValue);
+
+				// Multi-value columns (usergroup, selection-multi, relation)
+				// store their "is equal" filter value as a literal list
+				// already shaped exactly like the row value it needs to
+				// become (e.g. {id, type} pairs for usergroup) - the same
+				// assumption Row2Mapper::replacePlaceholderValues() makes
+				// when evaluating filters for matching rows. Only a plain
+				// string can be a dynamic placeholder like "@me", so that's
+				// the only case that needs resolveSearchValue() at all.
+				$filterValue = $filter['value'];
+				if (is_string($filterValue) && str_starts_with($filterValue, '@')) {
+					$filterValue = $this->columnsHelper->resolveSearchValue($filterValue, $this->userId, $column);
+					if ($column->getType() === Column::TYPE_USERGROUP && is_array($filterValue)) {
+						$filterValue = $this->usergroupPlaceholderToPairs($filterValue);
+					}
 				}
-	
-				$parsedValue = $this->parseValueByColumnType($column, $resolvedValue);
+
+				$parsedValue = $this->parseValueByColumnType($column, $filterValue);
 				if ($parsedValue !== null) {
 					$data->add($filter['columnId'], $parsedValue);
 				}
@@ -356,27 +359,21 @@ class RowService extends SuperService {
 		}
 		return $data;
 	}
-	
+
 	/**
-	 * Flattens a resolveSearchValue()-style usergroup map
-	 * (['user' => ..., 'group' => [...], 'circle' => [...]]) into the
-	 * {id, type} pair list expected by UsergroupBusiness::parseValue()/canBeParsed().
+	 * Flattens the map resolveSearchValue() returns for the "@me" placeholder
+	 * on a usergroup column - keyed by the UsergroupType::* integer constants,
+	 * e.g. [UsergroupType::USER => $userId, UsergroupType::GROUP => [...]] -
+	 * into the {id, type} pair list UsergroupBusiness::parseValue() expects.
 	 *
+	 * @param array<int, string|array<string>> $value
 	 * @return array<int, array{id: string, type: int}>
 	 */
-	private function usergroupArrayToPairs(array $value): array {
+	private function usergroupPlaceholderToPairs(array $value): array {
 		$pairs = [];
-		$typeMap = [
-			UsergroupType::USER   => $value['user']   ?? null,
-			UsergroupType::GROUP  => $value['group']  ?? null,
-			UsergroupType::CIRCLE => $value['circle'] ?? null,
-		];
-		foreach ($typeMap as $type => $ids) {
-			if ($ids === null) {
-				continue;
-			}
+		foreach ($value as $type => $ids) {
 			foreach ((array)$ids as $id) {
-				$pairs[] = ['id' => $id, 'type' => $type];
+				$pairs[] = ['id' => (string)$id, 'type' => (int)$type];
 			}
 		}
 		return $pairs;
@@ -870,7 +867,7 @@ class RowService extends SuperService {
 	/**
 	 * This deletes all data for a column, eg if the columns gets removed
 	 *
-	 * >>> SECURITY <<<
+	 * >>> SECURITY <
 	 * We do not check if you are allowed to remove this data. That has to be
 	 * done before! Why? Mostly this check will have be run before and we can
 	 * pass this here due to performance reasons.
