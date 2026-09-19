@@ -14,20 +14,12 @@
 							activeContext.name }}
 					</h1>
 				</div>
-				<div class="row space-L context__description">
+				<div v-if="activeContext.description?.trim()" class="row space-L context__description">
 					{{ activeContext.description }}
 				</div>
 			</div>
 
 			<div class="resources">
-				<NcCheckboxRadioSwitch v-if="contextResources.length > 1"
-					:checked="layoutMode === 'cards'"
-					class="resources__layout-toggle"
-					type="switch"
-					@update:checked="checked => layoutMode = checked ? 'cards' : 'stacked'">
-					{{ t('tables', 'Card view') }}
-				</NcCheckboxRadioSwitch>
-
 				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
@@ -62,7 +54,7 @@
 <script>
 import MainModals from '../modules/modals/Modals.vue'
 import { mapState, mapActions, storeToRefs } from 'pinia'
-import { NcCheckboxRadioSwitch, NcIconSvgWrapper } from '@nextcloud/vue'
+import { NcIconSvgWrapper } from '@nextcloud/vue'
 import TableWrapper from '../modules/main/sections/TableWrapper.vue'
 import CustomView from '../modules/main/sections/View.vue'
 import ContextResourceCards from '../modules/main/sections/ContextResourceCards.vue'
@@ -79,7 +71,6 @@ import { showError } from '@nextcloud/dialogs'
 export default {
 	components: {
 		MainModals,
-		NcCheckboxRadioSwitch,
 		NcIconSvgWrapper,
 		ErrorMessage,
 		TableWrapper,
@@ -104,15 +95,17 @@ export default {
 			errorMessage: null,
 			loadedSignature: null,
 			isReloading: false,
-			// 'stacked' (default, all resources listed one below the other) or
-			// 'cards' (a card picker on top, one resource shown at a time)
-			layoutMode: 'cards',
 			activeResourceIndex: 0,
 		}
 	},
 
 	computed: {
 		...mapState(useTablesStore, ['tables', 'contexts', 'activeContextId', 'views', 'activeContext']),
+		// 'cards' (a card picker on top, one resource shown at a time) when
+		// there's more than one resource, otherwise just show it directly.
+		layoutMode() {
+			return this.contextResources.length > 1 ? 'cards' : 'stacked'
+		},
 		rows() {
 			const rows = {}
 			if (this.context && this.context.nodes) {
@@ -378,12 +371,6 @@ export default {
 .main-context-view {
 	width: max-content;
 	min-width: var(--app-content-width, 100%);
-}
-
-.resources__layout-toggle {
-	display: flex;
-	justify-content: flex-end;
-	padding: calc(2 * var(--default-grid-baseline, 4px)) 20px 0;
 }
 
 .resource {
