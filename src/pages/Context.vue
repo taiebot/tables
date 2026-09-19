@@ -19,7 +19,7 @@
 				</div>
 			</div>
 
-			<div class="resources">
+			<div class="resources" :style="{ minHeight: resourcesMinHeight + 'px' }">
 				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
@@ -96,6 +96,7 @@ export default {
 			loadedSignature: null,
 			isReloading: false,
 			activeResourceIndex: 0,
+			resourcesMinHeight: 0,
 		}
 	},
 
@@ -179,6 +180,19 @@ export default {
 		await this.reload()
 	},
 
+	updated() {
+		this.$nextTick(() => {
+			if (!this.$el || this.layoutMode !== 'cards') {
+				return
+			}
+			const heights = [...this.$el.querySelectorAll('.resource')].map(el => el.scrollHeight)
+			const tallest = Math.max(...heights, 0)
+			if (tallest && tallest !== this.resourcesMinHeight) {
+				this.resourcesMinHeight = tallest
+			}
+		})
+	},
+
 	methods: {
 		...mapActions(useTablesStore, ['loadContext', 'validateExportAccess', 'loadContextTable', 'loadContextView']),
 		...mapActions(useDataStore, ['loadColumnsFromBE', 'loadRowsFromBE', 'loadRelationsFromBE']),
@@ -198,6 +212,7 @@ export default {
 			this.loading = true
 			this.contextResources = []
 			this.activeResourceIndex = 0
+			this.resourcesMinHeight = 0
 
 			try {
 				await this.loadContext({ id: this.activeContextId })
