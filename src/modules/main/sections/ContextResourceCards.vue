@@ -59,10 +59,6 @@ export default {
 
 <style scoped lang="scss">
 .context-resource-cards {
-	position: sticky;
-	inset-inline-start: 0;
-	top: 0;
-	z-index: 15;
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	gap: calc(3 * var(--default-grid-baseline, 4px));
