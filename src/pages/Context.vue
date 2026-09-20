@@ -378,7 +378,7 @@ export default {
 
 .resources__stack {
 	display: grid;
-
+	overflow-anchor: none;
 	&-item {
 		grid-area: 1 / 1;
 		visibility: hidden;
