@@ -19,27 +19,30 @@
 				</div>
 			</div>
 
-			<div class="resources" :style="{ minHeight: resourcesMinHeight + 'px' }">
+			<div class="resources">
 				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
 					@update:active-index="index => activeResourceIndex = index" />
 
-				<div v-for="(resource, index) in contextResources"
-					v-show="layoutMode !== 'cards' || index === activeResourceIndex"
-					:key="resource.key">
-					<div v-if="!resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
-						<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-							:view-setting="viewSetting" @create-column="createColumn(false, resource)"
-							@import-scheme="openImportSchemeModal(resource)"
-							@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
-							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
-					</div>
-					<div v-else-if="resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
-						<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-							:view-setting="viewSetting" @create-column="createColumn(true, resource)"
-							@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
-							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
+				<div class="resources__stack">
+					<div v-for="(resource, index) in contextResources"
+						:key="resource.key"
+						class="resources__stack-item"
+						:class="{ 'resources__stack-item--active': layoutMode !== 'cards' || index === activeResourceIndex }">
+						<div v-if="!resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
+							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+								:view-setting="viewSetting" @create-column="createColumn(false, resource)"
+								@import-scheme="openImportSchemeModal(resource)"
+								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
+								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
+						</div>
+						<div v-else-if="resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
+							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+								:view-setting="viewSetting" @create-column="createColumn(true, resource)"
+								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
+								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
+						</div>
 					</div>
 				</div>
 			</div>
@@ -96,7 +99,6 @@ export default {
 			loadedSignature: null,
 			isReloading: false,
 			activeResourceIndex: 0,
-			resourcesMinHeight: 0,
 		}
 	},
 
@@ -180,19 +182,6 @@ export default {
 		await this.reload()
 	},
 
-	updated() {
-		this.$nextTick(() => {
-			if (!this.$el || this.layoutMode !== 'cards') {
-				return
-			}
-			const heights = [...this.$el.querySelectorAll('.resource')].map(el => el.scrollHeight)
-			const tallest = Math.max(...heights, 0)
-			if (tallest && tallest !== this.resourcesMinHeight) {
-				this.resourcesMinHeight = tallest
-			}
-		})
-	},
-
 	methods: {
 		...mapActions(useTablesStore, ['loadContext', 'validateExportAccess', 'loadContextTable', 'loadContextView']),
 		...mapActions(useDataStore, ['loadColumnsFromBE', 'loadRowsFromBE', 'loadRelationsFromBE']),
@@ -212,7 +201,6 @@ export default {
 			this.loading = true
 			this.contextResources = []
 			this.activeResourceIndex = 0
-			this.resourcesMinHeight = 0
 
 			try {
 				await this.loadContext({ id: this.activeContextId })
@@ -386,6 +374,21 @@ export default {
 .main-context-view {
 	width: max-content;
 	min-width: var(--app-content-width, 100%);
+}
+
+.resources__stack {
+	display: grid;
+
+	&-item {
+		grid-area: 1 / 1;
+		visibility: hidden;
+		pointer-events: none;
+
+		&--active {
+			visibility: visible;
+			pointer-events: auto;
+		}
+	}
 }
 
 .resource {
