@@ -71,7 +71,8 @@ export default {
 		appearance: none;
 		box-sizing: border-box;
 		width: 100%;
-		min-height: calc(30 * var(--default-grid-baseline, 4px));
+		height: calc(30 * var(--default-grid-baseline, 4px));
+		overflow-y: auto;
 		text-align: start;
 		cursor: pointer;
 		user-select: none;
@@ -108,10 +109,6 @@ export default {
 	&__description {
 		margin: 0;
 		color: var(--color-text-maxcontrast);
-		display: -webkit-box;
-		-webkit-line-clamp: 3;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
 	}
 }
 </style>
