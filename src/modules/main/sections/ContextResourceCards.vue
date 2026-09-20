@@ -13,12 +13,12 @@
 			:class="{ 'context-resource-cards__card--active': index === activeIndex }"
 			:aria-selected="index === activeIndex"
 			@click="$emit('update:active-index', index)">
-			<div class="context-resource-cards__title">
+			<h3 class="context-resource-cards__title">
 				<span v-if="resource.emoji">{{ resource.emoji }}&nbsp;</span>{{ resource.title }}
-			</div>
-			<div v-if="plainDescription(resource.description)" class="context-resource-cards__description">
+			</h3>
+			<p v-if="plainDescription(resource.description)" class="context-resource-cards__description">
 				{{ plainDescription(resource.description) }}
-			</div>
+			</p>
 		</button>
 	</div>
 </template>
@@ -75,14 +75,14 @@ export default {
 		appearance: none;
 		box-sizing: border-box;
 		width: 100%;
-		min-height: calc(18 * var(--default-grid-baseline, 4px));
+		min-height: calc(30 * var(--default-grid-baseline, 4px));
 		text-align: start;
 		cursor: pointer;
 		user-select: none;
 		background-color: var(--color-main-background);
 		border: 2px solid var(--color-border);
 		border-radius: var(--border-radius-large, 12px);
-		padding: calc(3 * var(--default-grid-baseline, 4px));
+		padding: calc(5 * var(--default-grid-baseline, 4px));
 		transition: border-color var(--animation-quick, 100ms) ease, background-color var(--animation-quick, 100ms) ease;
 
 		&:hover {
@@ -105,20 +105,15 @@ export default {
 	}
 
 	&__title {
-		font-weight: bold;
-		font-size: 15px;
-		margin-bottom: calc(1 * var(--default-grid-baseline, 4px));
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		margin: 0 0 calc(2 * var(--default-grid-baseline, 4px));
+		overflow-wrap: break-word;
 	}
 
 	&__description {
-		font-size: 12px;
+		margin: 0;
 		color: var(--color-text-maxcontrast);
-		line-height: 1.3;
 		display: -webkit-box;
-		-webkit-line-clamp: 2;
+		-webkit-line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
