@@ -8,7 +8,7 @@
 
 		<div v-else-if="activeContext">
 			<div class="content context">
-				<div ref="titleRow" class="row first-row">
+				<div class="row first-row">
 					<h1 class="context__title" data-cy="context-title">
 						<NcIconSvgWrapper :svg="icon" :size="32" style="display: inline-block;" />&nbsp; {{
 							activeContext.name }}
@@ -19,7 +19,7 @@
 				</div>
 			</div>
 
-			<div class="resources" :style="{ '--context-title-height': titleRowHeight + 'px' }">	
+			<div class="resources">
 				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
@@ -99,7 +99,6 @@ export default {
 			loadedSignature: null,
 			isReloading: false,
 			activeResourceIndex: 0,
-			titleRowHeight: 60, // fallback matches NcTable's own default until measured
 		}
 	},
 
@@ -181,19 +180,11 @@ export default {
 			open: false,
 		})
 		await this.reload()
-		window.addEventListener('resize', this.measureTitleRow)
-	},
-
-	beforeUnmount() {
-		window.removeEventListener('resize', this.measureTitleRow)
 	},
 
 	methods: {
 		...mapActions(useTablesStore, ['loadContext', 'validateExportAccess', 'loadContextTable', 'loadContextView']),
 		...mapActions(useDataStore, ['loadColumnsFromBE', 'loadRowsFromBE', 'loadRelationsFromBE']),
-		measureTitleRow() {
-			this.titleRowHeight = this.$refs.titleRow?.offsetHeight || this.titleRowHeight
-		},
 		contextSignature() {
 			const ctx = this.activeContext
 			return ctx ? `${ctx.id}:${Object.keys(ctx.nodes || {}).sort().join(',')}` : null
@@ -301,7 +292,6 @@ export default {
 			} finally {
 				this.loading = false
 				this.isReloading = false
-				this.$nextTick(() => this.measureTitleRow())
 			}
 		},
 		createColumn(isView, element) {
@@ -389,6 +379,7 @@ export default {
 .resources__stack {
 	display: grid;
 	overflow-anchor: none;
+
 	&-item {
 		grid-area: 1 / 1;
 		visibility: hidden;
@@ -411,15 +402,11 @@ export default {
 		padding-inline-start: 20px;
 	}
 
-	// In card mode the picker above already shows the title and description,
-	// so avoid rendering them a second time inside the opened resource.
+	// In card mode the picker above already shows the title, so avoid
+	// rendering the description a second time inside the opened resource.
 	&--card-mode {
-		&:deep(.row.first-row),
 		&:deep(.element-description) {
 			display: none;
-		}
-		&:deep(.options.row) {
-			top: var(--context-title-height, 60px);
 		}
 	}
 }
