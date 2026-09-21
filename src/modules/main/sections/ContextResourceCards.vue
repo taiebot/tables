@@ -4,30 +4,49 @@
 -->
 <template>
 	<div class="context-resource-cards" role="tablist" :aria-label="t('tables', 'Application resources')">
-		<button v-for="(resource, index) in resources"
-			:id="`context-resource-card-${resource.key}`"
+		<div v-for="(resource, index) in resources"
 			:key="resource.key"
-			type="button"
-			role="tab"
 			class="context-resource-cards__card"
-			:class="{ 'context-resource-cards__card--active': index === activeIndex }"
-			:aria-selected="index === activeIndex"
-			@click="$emit('update:active-index', index)">
-			<h3 class="context-resource-cards__title">
-				<span v-if="resource.emoji">{{ resource.emoji }}&nbsp;</span>{{ resource.title }}
-			</h3>
-			<p v-if="plainDescription(resource.description)" class="context-resource-cards__description">
-				{{ plainDescription(resource.description) }}
-			</p>
-		</button>
+			:class="{ 'context-resource-cards__card--active': index === activeIndex }">
+			<button :id="`context-resource-card-${resource.key}`"
+				type="button"
+				role="tab"
+				class="context-resource-cards__card-button"
+				:aria-selected="index === activeIndex"
+				@click="$emit('update:active-index', index)">
+				<h3 class="context-resource-cards__title">
+					<span v-if="resource.emoji">{{ resource.emoji }}&nbsp;</span>{{ resource.title }}
+				</h3>
+			</button>
+
+			<button v-if="resource.description"
+				type="button"
+				class="context-resource-cards__toggle"
+				:class="{ 'context-resource-cards__toggle--expanded': expandedIndex === index }"
+				:aria-expanded="expandedIndex === index"
+				:aria-label="expandedIndex === index ? t('tables', 'Hide description') : t('tables', 'Show description')"
+				@click.stop="toggleExpanded(index)">
+				<ChevronDown :size="18" />
+			</button>
+
+			<div v-if="expandedIndex === index && resource.description" class="context-resource-cards__preview">
+				<NcRichText :text="resource.description" :autolink="true" />
+			</div>
+		</div>
 	</div>
 </template>
 
 <script>
-import DOMPurify from 'dompurify'
+import { NcRichText } from '@nextcloud/vue'
+import ChevronDown from 'vue-material-design-icons/ChevronDown.vue'
 
 export default {
 	name: 'ContextResourceCards',
+
+	components: {
+		NcRichText,
+		ChevronDown,
+	},
 
 	props: {
 		resources: {
@@ -42,16 +61,23 @@ export default {
 
 	emits: ['update:active-index'],
 
+	data() {
+		return {
+			expandedIndex: null,
+		}
+	},
+
+	watch: {
+		// Collapse any open preview when the active resource changes, so
+		// switching tables doesn't leave a stale expanded card behind.
+		activeIndex() {
+			this.expandedIndex = null
+		},
+	},
+
 	methods: {
-		/**
-		 * @param {string} description raw, possibly rich-text, description
-		 * @return {string} plain-text, whitespace-collapsed excerpt
-		 */
-		plainDescription(description) {
-			if (!description) {
-				return ''
-			}
-			return DOMPurify.sanitize(description, { ALLOWED_TAGS: [] }).replace(/\s+/g, ' ').trim()
+		toggleExpanded(index) {
+			this.expandedIndex = this.expandedIndex === index ? null : index
 		},
 	},
 }
@@ -68,14 +94,10 @@ export default {
 	width: var(--app-content-width, 100%);
 
 	&__card {
-		appearance: none;
+		position: relative;
 		box-sizing: border-box;
-		width: 100%;
 		height: calc(30 * var(--default-grid-baseline, 4px));
 		overflow-y: auto;
-		text-align: start;
-		cursor: pointer;
-		user-select: none;
 		background-color: var(--color-main-background);
 		border: 2px solid var(--color-border);
 		border-radius: var(--border-radius-large, 12px);
@@ -84,6 +106,61 @@ export default {
 
 		&:hover {
 			border-color: var(--color-primary-element);
+		}
+
+		&--active {
+			border-color: var(--color-primary-element);
+			background-color: var(--color-primary-element-light);
+		}
+	}
+
+	&__card-button {
+		appearance: none;
+		box-sizing: border-box;
+		width: 100%;
+		text-align: start;
+		cursor: pointer;
+		user-select: none;
+		background: transparent;
+		border: none;
+		padding: 0;
+		margin: 0;
+		font: inherit;
+		color: inherit;
+
+		&:focus {
+			outline: none;
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-primary-element);
+			outline-offset: 2px;
+		}
+	}
+
+	&__title {
+		margin: 0;
+		padding-inline-end: calc(6 * var(--default-grid-baseline, 4px));
+		overflow-wrap: break-word;
+	}
+
+	&__toggle {
+		appearance: none;
+		position: absolute;
+		top: calc(3 * var(--default-grid-baseline, 4px));
+		inset-inline-end: calc(3 * var(--default-grid-baseline, 4px));
+		display: flex;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		border-radius: var(--border-radius, 6px);
+		padding: calc(1 * var(--default-grid-baseline, 4px));
+		color: var(--color-text-maxcontrast);
+		transition: transform var(--animation-quick, 100ms) ease, background-color var(--animation-quick, 100ms) ease;
+
+		&:hover {
+			color: var(--color-main-text);
+			background-color: var(--color-background-hover);
 		}
 
 		&:focus {
@@ -95,20 +172,15 @@ export default {
 			outline-offset: 2px;
 		}
 
-		&--active {
-			border-color: var(--color-primary-element);
-			background-color: var(--color-primary-element-light);
+		&--expanded {
+			transform: rotate(180deg);
 		}
 	}
 
-	&__title {
-		margin: 0 0 calc(2 * var(--default-grid-baseline, 4px));
-		overflow-wrap: break-word;
-	}
-
-	&__description {
-		margin: 0;
+	&__preview {
+		margin-top: calc(2 * var(--default-grid-baseline, 4px));
 		color: var(--color-text-maxcontrast);
+		font-size: 14px;
 	}
 }
 </style>
