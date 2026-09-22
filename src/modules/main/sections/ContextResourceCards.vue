@@ -26,10 +26,10 @@
 						class="context-resource-cards__info"
 						:aria-label="t('tables', 'Show description')"
 						@click.stop="flippedIndex = index">
-						<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-							<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2" />
-							<circle cx="12" cy="7.5" r="1.3" fill="currentColor" />
-							<rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+						<svg class="context-resource-cards__info-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+							<circle class="context-resource-cards__info-icon-ring" cx="12" cy="12" r="11" />
+							<circle class="context-resource-cards__info-icon-dot" cx="12" cy="7.5" r="1.3" />
+							<rect class="context-resource-cards__info-icon-dot" x="11" y="10.5" width="2" height="7" rx="1" />
 						</svg>
 					</button>
 				</div>
@@ -45,14 +45,14 @@
 							class="context-resource-cards__info context-resource-cards__info--active"
 							:aria-label="t('tables', 'Back to cards')"
 							@click="flippedIndex = null">
-							<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-								<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2" />
-								<circle cx="12" cy="7.5" r="1.3" fill="currentColor" />
-								<rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+							<svg class="context-resource-cards__info-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+								<circle class="context-resource-cards__info-icon-ring" cx="12" cy="12" r="11" />
+								<circle class="context-resource-cards__info-icon-dot" cx="12" cy="7.5" r="1.3" />
+								<rect class="context-resource-cards__info-icon-dot" x="11" y="10.5" width="2" height="7" rx="1" />
 							</svg>
 						</button>
 					</div>
-					<NcRichText class="context-resource-cards__detail-text" :text="resources[flippedIndex].description" :autolink="true" />
+					<NcRichText class="context-resource-cards__detail-text" :text="resources[flippedIndex].description" :autolink="true" :reference-limit="1" />
 				</div>
 			</div>
 		</Transition>
@@ -60,8 +60,6 @@
 </template>
 
 <script>
-// @nextcloud/vue < 9: import NcRichText from '@nextcloud/vue/dist/Components/NcRichText.js'
-// @nextcloud/vue >= 9: import NcRichText from '@nextcloud/vue/components/NcRichText'
 import NcRichText from '@nextcloud/vue/components/NcRichText'
 
 export default {
@@ -238,6 +236,20 @@ export default {
 		&--active {
 			position: static;
 			flex-shrink: 0;
+		}
+	}
+
+	&__info-icon {
+		display: block;
+
+		&-ring {
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 2;
+		}
+
+		&-dot {
+			fill: currentColor;
 		}
 	}
 
