@@ -26,11 +26,7 @@
 						class="context-resource-cards__info"
 						:aria-label="t('tables', 'Show description')"
 						@click.stop="flippedIndex = index">
-						<svg class="context-resource-cards__info-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-							<circle class="context-resource-cards__info-icon-ring" cx="12" cy="12" r="11" />
-							<circle class="context-resource-cards__info-icon-dot" cx="12" cy="7.5" r="1.3" />
-							<rect class="context-resource-cards__info-icon-dot" x="11" y="10.5" width="2" height="7" rx="1" />
-						</svg>
+						<span class="context-resource-cards__info-badge" aria-hidden="true">i</span>
 					</button>
 				</div>
 			</div>
@@ -45,14 +41,10 @@
 							class="context-resource-cards__info context-resource-cards__info--active"
 							:aria-label="t('tables', 'Back to cards')"
 							@click="flippedIndex = null">
-							<svg class="context-resource-cards__info-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-								<circle class="context-resource-cards__info-icon-ring" cx="12" cy="12" r="11" />
-								<circle class="context-resource-cards__info-icon-dot" cx="12" cy="7.5" r="1.3" />
-								<rect class="context-resource-cards__info-icon-dot" x="11" y="10.5" width="2" height="7" rx="1" />
-							</svg>
+							<span class="context-resource-cards__info-badge" aria-hidden="true">✕</span>
 						</button>
 					</div>
-					<NcRichText class="context-resource-cards__detail-text" :text="resources[flippedIndex].description" :autolink="true" :reference-limit="1" />
+					<TableDescription class="context-resource-cards__detail-text" :description="resources[flippedIndex].description" :read-only="true" />
 				</div>
 			</div>
 		</Transition>
@@ -60,13 +52,13 @@
 </template>
 
 <script>
-import NcRichText from '@nextcloud/vue/components/NcRichText'
+import TableDescription from './TableDescription.vue'
 
 export default {
 	name: 'ContextResourceCards',
 
 	components: {
-		NcRichText,
+		TableDescription,
 	},
 
 	props: {
@@ -239,18 +231,17 @@ export default {
 		}
 	}
 
-	&__info-icon {
-		display: block;
-
-		&-ring {
-			fill: none;
-			stroke: currentColor;
-			stroke-width: 2;
-		}
-
-		&-dot {
-			fill: currentColor;
-		}
+	&__info-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		font-size: 11px;
+		line-height: 1;
+		font-style: italic;
+		font-weight: bold;
 	}
 
 	&__detail {
