@@ -62,7 +62,7 @@
 <script>
 // @nextcloud/vue < 9: import NcRichText from '@nextcloud/vue/dist/Components/NcRichText.js'
 // @nextcloud/vue >= 9: import NcRichText from '@nextcloud/vue/components/NcRichText'
-import NcRichText from '@nextcloud/vue/dist/Components/NcRichText.js'
+import NcRichText from '@nextcloud/vue/components/NcRichText'
 
 export default {
 	name: 'ContextResourceCards',
