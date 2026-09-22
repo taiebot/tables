@@ -4,48 +4,71 @@
 -->
 <template>
 	<div class="context-resource-cards" role="tablist" :aria-label="t('tables', 'Application resources')">
-		<div v-for="(resource, index) in resources"
-			:key="resource.key"
-			class="context-resource-cards__card"
-			:class="{ 'context-resource-cards__card--active': index === activeIndex }">
-			<button :id="`context-resource-card-${resource.key}`"
-				type="button"
-				role="tab"
-				class="context-resource-cards__card-button"
-				:aria-selected="index === activeIndex"
-				@click="$emit('update:active-index', index)">
-				<h3 class="context-resource-cards__title">
-					<span v-if="resource.emoji">{{ resource.emoji }}&nbsp;</span>{{ resource.title }}
-				</h3>
-			</button>
+		<Transition name="card-flip" mode="out-in">
+			<div v-if="flippedIndex === null" key="grid" class="context-resource-cards__grid">
+				<div v-for="(resource, index) in resources"
+					:key="resource.key"
+					class="context-resource-cards__card"
+					:class="{ 'context-resource-cards__card--active': index === activeIndex }">
+					<button :id="`context-resource-card-${resource.key}`"
+						type="button"
+						role="tab"
+						class="context-resource-cards__card-button"
+						:aria-selected="index === activeIndex"
+						@click="$emit('update:active-index', index)">
+						<h3 class="context-resource-cards__title">
+							<span v-if="resource.emoji">{{ resource.emoji }}&nbsp;</span>{{ resource.title }}
+						</h3>
+					</button>
 
-			<button v-if="resource.description"
-				type="button"
-				class="context-resource-cards__toggle"
-				:class="{ 'context-resource-cards__toggle--expanded': expandedIndex === index }"
-				:aria-expanded="expandedIndex === index"
-				:aria-label="expandedIndex === index ? t('tables', 'Hide description') : t('tables', 'Show description')"
-				@click.stop="toggleExpanded(index)">
-				<ChevronDown :size="18" />
-			</button>
-
-			<div v-if="expandedIndex === index && resource.description" class="context-resource-cards__preview">
-				<NcRichText :text="resource.description" :autolink="true" />
+					<button v-if="resource.description"
+						type="button"
+						class="context-resource-cards__info"
+						:aria-label="t('tables', 'Show description')"
+						@click.stop="flippedIndex = index">
+						<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+							<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2" />
+							<circle cx="12" cy="7.5" r="1.3" fill="currentColor" />
+							<rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+						</svg>
+					</button>
+				</div>
 			</div>
-		</div>
+
+			<div v-else key="detail" class="context-resource-cards__detail">
+				<div ref="detailPanel" class="context-resource-cards__detail-panel">
+					<div class="context-resource-cards__detail-header">
+						<h3 class="context-resource-cards__title">
+							<span v-if="resources[flippedIndex].emoji">{{ resources[flippedIndex].emoji }}&nbsp;</span>{{ resources[flippedIndex].title }}
+						</h3>
+						<button type="button"
+							class="context-resource-cards__info context-resource-cards__info--active"
+							:aria-label="t('tables', 'Back to cards')"
+							@click="flippedIndex = null">
+							<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+								<circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="2" />
+								<circle cx="12" cy="7.5" r="1.3" fill="currentColor" />
+								<rect x="11" y="10.5" width="2" height="7" rx="1" fill="currentColor" />
+							</svg>
+						</button>
+					</div>
+					<NcRichText class="context-resource-cards__detail-text" :text="resources[flippedIndex].description" :autolink="true" />
+				</div>
+			</div>
+		</Transition>
 	</div>
 </template>
 
 <script>
-import { NcRichText } from '@nextcloud/vue'
-import ChevronDown from 'vue-material-design-icons/ChevronDown.vue'
+// @nextcloud/vue < 9: import NcRichText from '@nextcloud/vue/dist/Components/NcRichText.js'
+// @nextcloud/vue >= 9: import NcRichText from '@nextcloud/vue/components/NcRichText'
+import NcRichText from '@nextcloud/vue/dist/Components/NcRichText.js'
 
 export default {
 	name: 'ContextResourceCards',
 
 	components: {
 		NcRichText,
-		ChevronDown,
 	},
 
 	props: {
@@ -63,21 +86,51 @@ export default {
 
 	data() {
 		return {
-			expandedIndex: null,
+			flippedIndex: null,
 		}
 	},
 
 	watch: {
-		// Collapse any open preview when the active resource changes, so
-		// switching tables doesn't leave a stale expanded card behind.
+		// Switching which resource is open below should drop back to the grid.
 		activeIndex() {
-			this.expandedIndex = null
+			this.flippedIndex = null
+		},
+		flippedIndex(newVal) {
+			if (newVal !== null) {
+				// Defer so the click that opened the panel isn't immediately
+				// seen as an "outside" click by this same listener.
+				this.$nextTick(() => {
+					document.addEventListener('click', this.handleOutsideClick, true)
+				})
+				window.addEventListener('scroll', this.closeDetail, { passive: true })
+				document.addEventListener('keydown', this.handleEscape)
+			} else {
+				document.removeEventListener('click', this.handleOutsideClick, true)
+				window.removeEventListener('scroll', this.closeDetail)
+				document.removeEventListener('keydown', this.handleEscape)
+			}
 		},
 	},
 
+	beforeUnmount() {
+		document.removeEventListener('click', this.handleOutsideClick, true)
+		window.removeEventListener('scroll', this.closeDetail)
+		document.removeEventListener('keydown', this.handleEscape)
+	},
+
 	methods: {
-		toggleExpanded(index) {
-			this.expandedIndex = this.expandedIndex === index ? null : index
+		closeDetail() {
+			this.flippedIndex = null
+		},
+		handleOutsideClick(event) {
+			if (this.$refs.detailPanel && !this.$refs.detailPanel.contains(event.target)) {
+				this.closeDetail()
+			}
+		},
+		handleEscape(event) {
+			if (event.key === 'Escape') {
+				this.closeDetail()
+			}
 		},
 	},
 }
@@ -85,19 +138,24 @@ export default {
 
 <style scoped lang="scss">
 .context-resource-cards {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: calc(3 * var(--default-grid-baseline, 4px));
+	width: var(--app-content-width, 100%);
 	padding: calc(4 * var(--default-grid-baseline, 4px)) 20px;
 	background-color: var(--color-main-background);
 	border-bottom: 1px solid var(--color-border);
-	width: var(--app-content-width, 100%);
+	box-sizing: border-box;
+
+	&__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: calc(3 * var(--default-grid-baseline, 4px));
+	}
 
 	&__card {
 		position: relative;
 		box-sizing: border-box;
 		height: calc(30 * var(--default-grid-baseline, 4px));
 		overflow-y: auto;
+		overflow-x: hidden;
 		background-color: var(--color-main-background);
 		border: 2px solid var(--color-border);
 		border-radius: var(--border-radius-large, 12px);
@@ -141,22 +199,25 @@ export default {
 	&__title {
 		margin: 0;
 		padding-inline-end: calc(6 * var(--default-grid-baseline, 4px));
-		overflow-wrap: break-word;
+		overflow-wrap: anywhere;
 	}
 
-	&__toggle {
+	&__info {
 		appearance: none;
 		position: absolute;
 		top: calc(3 * var(--default-grid-baseline, 4px));
 		inset-inline-end: calc(3 * var(--default-grid-baseline, 4px));
 		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
 		background: transparent;
 		border: none;
+		border-radius: 50%;
 		cursor: pointer;
-		border-radius: var(--border-radius, 6px);
-		padding: calc(1 * var(--default-grid-baseline, 4px));
 		color: var(--color-text-maxcontrast);
-		transition: transform var(--animation-quick, 100ms) ease, background-color var(--animation-quick, 100ms) ease;
+		transition: color var(--animation-quick, 100ms) ease, background-color var(--animation-quick, 100ms) ease;
 
 		&:hover {
 			color: var(--color-main-text);
@@ -172,15 +233,50 @@ export default {
 			outline-offset: 2px;
 		}
 
-		&--expanded {
-			transform: rotate(180deg);
+		// Used as the "back" button inside the detail panel header instead of
+		// a floating corner badge.
+		&--active {
+			position: static;
+			flex-shrink: 0;
 		}
 	}
 
-	&__preview {
-		margin-top: calc(2 * var(--default-grid-baseline, 4px));
-		color: var(--color-text-maxcontrast);
-		font-size: 14px;
+	&__detail {
+		width: 100%;
+		box-sizing: border-box;
 	}
+
+	&__detail-panel {
+		width: 100%;
+		box-sizing: border-box;
+		background-color: var(--color-main-background);
+		border: 2px solid var(--color-primary-element);
+		border-radius: var(--border-radius-large, 12px);
+		padding: calc(5 * var(--default-grid-baseline, 4px));
+		overflow-x: hidden;
+	}
+
+	&__detail-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: calc(3 * var(--default-grid-baseline, 4px));
+		margin-bottom: calc(3 * var(--default-grid-baseline, 4px));
+	}
+
+	&__detail-text {
+		overflow-wrap: anywhere;
+	}
+}
+
+.card-flip-enter-active,
+.card-flip-leave-active {
+	transition: opacity var(--animation-quick, 150ms) ease, transform var(--animation-quick, 150ms) ease;
+}
+
+.card-flip-enter-from,
+.card-flip-leave-to {
+	opacity: 0;
+	transform: scaleY(0.98);
 }
 </style>
