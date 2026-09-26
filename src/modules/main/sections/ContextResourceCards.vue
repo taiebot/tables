@@ -235,13 +235,15 @@ export default {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 16px;
-		height: 16px;
+		width: 18px;
+		height: 18px;
+		border: 1.5px solid currentColor;
 		border-radius: 50%;
 		font-size: 11px;
 		line-height: 1;
 		font-style: italic;
-		font-weight: bold;
+		font-weight: 600;
+		font-family: Georgia, 'Times New Roman', serif;
 	}
 
 	&__detail {
