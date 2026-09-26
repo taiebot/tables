@@ -144,7 +144,7 @@ export default {
 		color: inherit;
 
 		&:hover {
-			background: transparent;
+			background: transparent !important;
 		}
 	
 		&:focus {
@@ -215,6 +215,12 @@ export default {
 		border-radius: var(--border-radius-large, 12px);
 		padding: calc(5 * var(--default-grid-baseline, 4px));
 		overflow-x: hidden;
+
+		:deep(.element-description) {
+			width: 100%;
+			max-width: 100%;
+			padding-inline: 0 !important;
+		}
 	}
 
 	&__detail-header {
