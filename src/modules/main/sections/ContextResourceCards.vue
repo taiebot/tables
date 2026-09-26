@@ -26,7 +26,7 @@
 						class="context-resource-cards__info"
 						:aria-label="t('tables', 'Show description')"
 						@click.stop="flippedIndex = index">
-						<span class="context-resource-cards__info-badge" aria-hidden="true">i</span>
+						<InformationOutline :size="16" />
 					</button>
 				</div>
 			</div>
@@ -41,7 +41,7 @@
 							class="context-resource-cards__info context-resource-cards__info--active"
 							:aria-label="t('tables', 'Back to cards')"
 							@click="flippedIndex = null">
-							<span class="context-resource-cards__info-badge" aria-hidden="true">✕</span>
+							<Close :size="16" />
 						</button>
 					</div>
 					<TableDescription class="context-resource-cards__detail-text" :description="resources[flippedIndex].description" :read-only="true" />
@@ -53,12 +53,16 @@
 
 <script>
 import TableDescription from './TableDescription.vue'
+import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
+import Close from 'vue-material-design-icons/Close.vue'
 
 export default {
 	name: 'ContextResourceCards',
 
 	components: {
 		TableDescription,
+		InformationOutline,
+		Close,
 	},
 
 	props: {
@@ -229,21 +233,6 @@ export default {
 			position: static;
 			flex-shrink: 0;
 		}
-	}
-
-	&__info-badge {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 18px;
-		height: 18px;
-		border: 1.5px solid currentColor;
-		border-radius: 50%;
-		font-size: 11px;
-		line-height: 1;
-		font-style: italic;
-		font-weight: 600;
-		font-family: Georgia, 'Times New Roman', serif;
 	}
 
 	&__detail {
