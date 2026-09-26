@@ -32,7 +32,7 @@
 			</div>
 
 			<div v-else key="detail" class="context-resource-cards__detail">
-				<div ref="detailPanel" class="context-resource-cards__detail-panel">
+				<div class="context-resource-cards__detail-panel">
 					<div class="context-resource-cards__detail-header">
 						<h3 class="context-resource-cards__title">
 							<span v-if="resources[flippedIndex].emoji">{{ resources[flippedIndex].emoji }}&nbsp;</span>{{ resources[flippedIndex].title }}
@@ -89,43 +89,6 @@ export default {
 		activeIndex() {
 			this.flippedIndex = null
 		},
-		flippedIndex(newVal) {
-			if (newVal !== null) {
-				// Defer so the click that opened the panel isn't immediately
-				// seen as an "outside" click by this same listener.
-				this.$nextTick(() => {
-					document.addEventListener('click', this.handleOutsideClick, true)
-				})
-				window.addEventListener('scroll', this.closeDetail, { passive: true })
-				document.addEventListener('keydown', this.handleEscape)
-			} else {
-				document.removeEventListener('click', this.handleOutsideClick, true)
-				window.removeEventListener('scroll', this.closeDetail)
-				document.removeEventListener('keydown', this.handleEscape)
-			}
-		},
-	},
-
-	beforeUnmount() {
-		document.removeEventListener('click', this.handleOutsideClick, true)
-		window.removeEventListener('scroll', this.closeDetail)
-		document.removeEventListener('keydown', this.handleEscape)
-	},
-
-	methods: {
-		closeDetail() {
-			this.flippedIndex = null
-		},
-		handleOutsideClick(event) {
-			if (this.$refs.detailPanel && !this.$refs.detailPanel.contains(event.target)) {
-				this.closeDetail()
-			}
-		},
-		handleEscape(event) {
-			if (event.key === 'Escape') {
-				this.closeDetail()
-			}
-		},
 	},
 }
 </script>
@@ -180,6 +143,10 @@ export default {
 		font: inherit;
 		color: inherit;
 
+		&:hover {
+			background: transparent;
+		}
+	
 		&:focus {
 			outline: none;
 		}
