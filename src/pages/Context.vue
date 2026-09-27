@@ -110,7 +110,7 @@ export default {
 		// just stacked one below the other, same as before this feature.
 		layoutMode() {
 			if (!this.activeContext?.cardViewEnabled) {
-				return 'stacked'
+				return 'cards'
 			}
 			return this.contextResources.length > 1 ? 'cards' : 'stacked'
 		},
