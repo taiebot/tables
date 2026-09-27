@@ -52,6 +52,14 @@
 					{{ t('tables', 'This can be overridden by a per-account preference') }}
 				</p>
 			</div>
+			<div class="row space-T">
+				<NcActionCheckbox :model-value="cardViewEnabled" @change="changeCardView">
+					{{ t('tables', 'Show resources as cards') }}
+				</NcActionCheckbox>
+				<p class="nav-display-subtext">
+					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
+				</p>
+			</div>
 			<div class="row space-R row space-T">
 				<div class="fix-col-4 end">
 					<NcButton type="primary" :aria-label="t('tables', 'Create application')" data-cy="createContextSubmitBtn" @click="submit">
@@ -109,6 +117,7 @@ export default {
 			resources: [],
 			receivers: [],
 			showInNavigationDefault: false,
+			cardViewEnabled: false,
 		}
 	},
 	watch: {
@@ -169,6 +178,7 @@ export default {
 				iconName: this.icon.name,
 				description: this.description,
 				nodes: dataResources,
+				cardViewEnabled: this.cardViewEnabled,
 			}
 			// adding share to oneself to have navigation display control
 			this.receivers.push(
@@ -190,12 +200,16 @@ export default {
 		changeDisplayMode() {
 			this.showInNavigation = !this.showInNavigation
 		},
+		changeCardView() {
+			this.cardViewEnabled = !this.cardViewEnabled
+		},	
 		reset() {
 			this.title = ''
 			this.errorTitle = false
 			this.setIcon(this.randomIcon())
 			this.customTitleChosen = false
 			this.showInNavigationDefault = false
+			this.cardViewEnabled = false
 		},
 	},
 }
