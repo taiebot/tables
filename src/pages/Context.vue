@@ -24,30 +24,49 @@
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
 					@update:active-index="index => activeResourceIndex = index" />
-
-				<div class="resources__stack">
-					<div v-for="(resource, index) in contextResources"
-						:key="resource.key"
-						class="resources__stack-item"
-						:class="{ 'resources__stack-item--active': layoutMode !== 'cards' || index === activeResourceIndex }">
-						<div v-if="!resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
-							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(false, resource)"
-								@import-scheme="openImportSchemeModal(resource)"
-								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
-						</div>
-						<div v-else-if="resource.isView" class="resource" :class="{ 'resource--card-mode': layoutMode === 'cards' }">
-							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(true, resource)"
-								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
-						</div>
+			<!-- Cards mode: one resource visible at a time, all overlaid in
+				the same grid cell so switching never changes the
+				container's height (prevents the scroll jump). -->
+			<div v-if="layoutMode === 'cards'" class="resources__stack">
+				<div v-for="(resource, index) in contextResources"
+					:key="resource.key"
+					class="resources__stack-item"
+					:class="{ 'resources__stack-item--active': index === activeResourceIndex }">
+					<div v-if="!resource.isView" class="resource resource--card-mode">
+						<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+							:view-setting="viewSetting" @create-column="createColumn(false, resource)"
+							@import-scheme="openImportSchemeModal(resource)"
+							@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
+							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
+					</div>
+					<div v-else-if="resource.isView" class="resource resource--card-mode">
+						<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+							:view-setting="viewSetting" @create-column="createColumn(true, resource)"
+							@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
+							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
+					</div>	
+				</div>			
+			</div>
+			<!-- Stacked mode: every resource shown normally, one after
+				the other, exactly like before this feature existed. -->
+			<template v-else>
+				<div v-for="resource in contextResources" :key="resource.key">
+					<div v-if="!resource.isView" class="resource">
+						<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+							:view-setting="viewSetting" @create-column="createColumn(false, resource)"
+							@import-scheme="openImportSchemeModal(resource)"
+							@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
+							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
+					</div>
+					<div v-else-if="resource.isView" class="resource">
+						<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
+							:view-setting="viewSetting" @create-column="createColumn(true, resource)"
+							@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
+							@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
 					</div>
 				</div>
-			</div>
-		</div>
-
+			</template>	
+		</div>					
 		<ErrorMessage v-else-if="errorMessage" :message="errorMessage" />
 
 		<MainModals />
