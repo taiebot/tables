@@ -104,9 +104,14 @@ export default {
 
 	computed: {
 		...mapState(useTablesStore, ['tables', 'contexts', 'activeContextId', 'views', 'activeContext']),
-		// 'cards' (a card picker on top, one resource shown at a time) when
-		// there's more than one resource, otherwise just show it directly.
+		// 'cards' (a card picker on top, one resource shown at a time) only
+		// when the application was created/edited with the card-view option
+		// enabled AND there's more than one resource; otherwise everything is
+		// just stacked one below the other, same as before this feature.
 		layoutMode() {
+			if (!this.activeContext?.cardViewEnabled) {
+				return 'stacked'
+			}
 			return this.contextResources.length > 1 ? 'cards' : 'stacked'
 		},
 		rows() {
