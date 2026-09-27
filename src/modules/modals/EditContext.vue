@@ -45,6 +45,14 @@
 				</p>
 			</div>
 			<div class="row space-T">
+				<NcActionCheckbox :model-value="cardViewEnabled" @change="changeCardView">
+					{{ t('tables', 'Show resources as cards') }}
+				</NcActionCheckbox>
+				<p class="nav-display-subtext">
+					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
+				</p>
+			</div>
+			<div class="row space-T">
 				<div class="fix-col-4 space-T justify-between">
 					<NcButton v-if="!prepareDeleteContext" type="error" @click="prepareDeleteContext = true">
 						{{ t('tables', 'Delete') }}
@@ -123,6 +131,7 @@ export default {
 			PERMISSION_DELETE,
 			prepareDeleteContext: false,
 			showInNavigationDefault: false,
+			cardViewEnabled: false,
 		}
 	},
 	computed: {
@@ -147,6 +156,7 @@ export default {
 				this.resources = context ? this.getContextResources(context) : []
 				this.receivers = context ? this.getContextReceivers(context) : []
 				this.showInNavigationDefault = this.getNavDisplay(context)
+				this.cardViewEnabled = !!context.cardViewEnabled
 			}
 		},
 	},
@@ -177,6 +187,7 @@ export default {
 					iconName: this.icon.name,
 					description: this.description,
 					nodes: dataResources,
+					cardViewEnabled: this.cardViewEnabled,
 				}
 				const context = this.getContext(this.contextId)
 				// adding share to oneself to have navigation display control
@@ -206,6 +217,7 @@ export default {
 			this.receivers = context ? this.getContextReceivers(context) : []
 			this.prepareDeleteContext = false
 			this.showInNavigationDefault = this.getNavDisplay(context)
+			this.cardViewEnabled = !!context?.cardViewEnabled
 		},
 		getNavDisplay(context) {
 			const shares = Object.keys(context.sharing || {})
@@ -284,6 +296,9 @@ export default {
 		},
 		changeDisplayMode() {
 			this.showInNavigationDefault = !this.showInNavigationDefault
+		},
+		changeCardView() {
+			this.cardViewEnabled = !this.cardViewEnabled
 		},
 		actionTransfer() {
 			emit('tables:context:edit', null)
