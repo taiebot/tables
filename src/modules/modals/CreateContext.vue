@@ -44,18 +44,18 @@
 			</div>
 			<div class="row space-T">
 				<div data-cy="createContextShowInNavSwitch">
-					<NcActionCheckbox :model-value="showInNavigationDefault" @change="changeDisplayMode">
+					<NcActionCheckboxRadioSwitch :model-value="showInNavigationDefault" @change="changeDisplayMode">
 						{{ t('tables', 'Show in app list') }}
-					</NcActionCheckbox>
+					</NcActionCheckboxRadioSwitch>
 				</div>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'This can be overridden by a per-account preference') }}
 				</p>
 			</div>
 			<div class="row space-T">
-				<NcActionCheckbox :model-value="cardViewEnabled" @change="changeCardView">
+				<NcActionCheckboxRadioSwitch :model-value="cardViewEnabled" @change="changeCardView">
 					{{ t('tables', 'Show resources as cards') }}
-				</NcActionCheckbox>
+				</NcActionCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
 				</p>
@@ -72,7 +72,7 @@
 </template>
 
 <script>
-import { NcDialog, NcButton, NcIconSvgWrapper, NcActionCheckbox } from '@nextcloud/vue'
+import { NcDialog, NcButton, NcIconSvgWrapper, NcActionCheckboxRadioSwitch } from '@nextcloud/vue'
 import { showError } from '@nextcloud/dialogs'
 import '@nextcloud/dialogs/style.css'
 import NcContextResource from '../../shared/components/ncContextResource/NcContextResource.vue'
