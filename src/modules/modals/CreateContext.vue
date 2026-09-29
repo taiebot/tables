@@ -189,7 +189,7 @@ export default {
 					isUser: true,
 					key: 'user-' + getCurrentUser().uid,
 				})
-			const displayMode = this.showInNavigation ? 'NAV_ENTRY_MODE_ALL' : 'NAV_ENTRY_MODE_HIDDEN'
+			const displayMode = this.showInNavigationDefault ? 'NAV_ENTRY_MODE_ALL' : 'NAV_ENTRY_MODE_HIDDEN'
 			const res = await this.insertNewContext({ data, previousReceivers: [], receivers: this.receivers, displayMode: NAV_ENTRY_MODE[displayMode] })
 			if (res) {
 				return res.id
@@ -198,7 +198,7 @@ export default {
 			}
 		},
 		changeDisplayMode() {
-			this.showInNavigation = !this.showInNavigation
+			this.showInNavigationDefault = !this.showInNavigationDefault
 		},
 		changeCardView() {
 			this.cardViewEnabled = !this.cardViewEnabled
