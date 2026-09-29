@@ -37,17 +37,17 @@
 				<NcContextResource v-model:resources="resources" v-model:receivers="receivers" />
 			</div>
 			<div class="row space-T">
-				<NcActionCheckboxRadioSwitch :model-value="showInNavigationDefault" @change="changeDisplayMode">
+				<NcCheckboxRadioSwitch :model-value="showInNavigationDefault" @change="changeDisplayMode">
 					{{ t('tables', 'Show in app list') }}
-				</NcActionCheckboxRadioSwitch>
+				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'This can be overridden by a per-account preference') }}
 				</p>
 			</div>
 			<div class="row space-T">
-				<NcActionCheckboxRadioSwitch :model-value="cardViewEnabled" @change="changeCardView">
+				<NcCheckboxRadioSwitch :model-value="cardViewEnabled" @change="changeCardView">
 					{{ t('tables', 'Show resources as cards') }}
-				</NcActionCheckboxRadioSwitch>
+				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
 				</p>
@@ -76,7 +76,7 @@
 </template>
 
 <script>
-import { NcDialog, NcButton, NcIconSvgWrapper, NcActionCheckboxRadioSwitch } from '@nextcloud/vue'
+import { NcDialog, NcButton, NcIconSvgWrapper, NcCheckboxRadioSwitch } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { getCurrentUser } from '@nextcloud/auth'
 import '@nextcloud/dialogs/style.css'
@@ -98,7 +98,7 @@ export default {
 		NcIconPicker,
 		NcIconSvgWrapper,
 		NcContextResource,
-		NcActionCheckbox,
+		NcCheckboxRadioSwitch,
 	},
 	mixins: [svgHelper, permissionBitmask, permissionsMixin],
 	props: {
