@@ -37,7 +37,7 @@
 				<NcContextResource v-model:resources="resources" v-model:receivers="receivers" />
 			</div>
 			<div class="row space-T">
-				<NcCheckboxRadioSwitch :model-value="showInNavigationDefault" @change="changeDisplayMode">
+				<NcCheckboxRadioSwitch :model-value="showInNavigationDefault" @update:model-value="changeDisplayMode">
 					{{ t('tables', 'Show in app list') }}
 				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
@@ -45,7 +45,7 @@
 				</p>
 			</div>
 			<div class="row space-T">
-				<NcCheckboxRadioSwitch :model-value="cardViewEnabled" @change="changeCardView">
+				<NcCheckboxRadioSwitch :model-value="cardViewEnabled" @update:model-value="changeCardView">
 					{{ t('tables', 'Show resources as cards') }}
 				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
