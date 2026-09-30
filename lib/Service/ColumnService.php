@@ -482,6 +482,29 @@ class ColumnService extends SuperService {
 				);
 			}
 		}
+
+		if (isset($settings['showPreview']) && !is_bool($settings['showPreview'])) {
+			$translatedMessage = $this->l->t('Show preview must be a boolean value.');
+			throw new BadRequestError(
+				$translatedMessage,
+				0,
+				null,
+				$translatedMessage
+			);
+		}
+
+		if (isset($settings['imagePreviewSize'])) {
+			$size = $settings['imagePreviewSize'];
+			if (!is_numeric($size) || $size < 32 || $size > 192) {
+				$translatedMessage = $this->l->t('Image preview size must be between %1$s and %2$s.', [32, 192]);
+				throw new BadRequestError(
+					$translatedMessage,
+					0,
+					null,
+					$translatedMessage
+				);
+			}
+		}
 	}
 
 	private function normalizeTitle(?string $title, bool $required): ?string {
@@ -614,9 +637,7 @@ class ColumnService extends SuperService {
 	public function findOrCreateColumnsByTitleForTableAsArray(?int $tableId, ?int $viewId, array $titles, array $dataTypes, ?string $userId, bool $createUnknownColumns, int &$countCreatedColumns, int &$countMatchingColumns): array {
 		$result = [];
 
-		if ($userId === null) {
-			$userId = $this->userId;
-		}
+		$userId ??= $this->userId;
 		if ($viewId) {
 			$allColumns = $this->findAllByView($viewId, $userId);
 		} elseif ($tableId) {
@@ -638,10 +659,7 @@ class ColumnService extends SuperService {
 				}
 				$result[$i] = '';
 			}
-			// if there are no columns at all
-			if (!isset($result[$i])) {
-				$result[$i] = '';
-			}
+			$result[$i] ??= '';
 			// if column was not found
 			if ($result[$i] === '' && $createUnknownColumns && $dataTypes[$i]['type'] !== Column::TYPE_META_ID) {
 				$description = $this->l->t('This column was automatically created by the import service.');
