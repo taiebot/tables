@@ -430,8 +430,7 @@ export default {
 		padding-inline-start: 20px;
 	}
 
-	// In card mode the picker above already shows the title, so avoid
-	// rendering the description a second time inside the opened resource.
+	// The description is shown by the tabs' "i" panel, not inside the resource.
 	&--card-mode {
 		&:deep(.element-description) {
 			display: none;
@@ -442,5 +441,29 @@ export default {
 :deep(h1) {
 	font-size: unset;
 	font-size: revert;
+}
+</style>
+
+<!-- Not scoped on purpose: these rules target elements rendered by child
+     components (TableWrapper / View / NcTable). Same selectors as tested live. -->
+<style lang="scss">
+.resources {
+	// One value for the tab row height and the table's sticky bar offset.
+	--tbl-tabs-h: 48px;
+}
+
+.resource.resource--card-mode {
+	margin-top: 0 !important;
+
+	// The active tab already names the table.
+	> div > .row.first-row,
+	.row.space-T {
+		display: none !important;
+	}
+
+	// NcTable assumes a 60px title above its sticky bar: pin it under the tabs.
+	.options.row {
+		top: var(--tbl-tabs-h, 48px) !important;
+	}
 }
 </style>
