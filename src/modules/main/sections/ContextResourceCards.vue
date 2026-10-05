@@ -5,7 +5,8 @@
 <template>
 	<div class="context-resource-tabs">
 		<div class="context-resource-tabs__bar">
-			<div class="context-resource-tabs__list"
+			<div ref="list"
+				class="context-resource-tabs__list"
 				role="tablist"
 				:aria-label="t('tables', 'Application resources')"
 				@keydown="onKeydown">
@@ -50,15 +51,22 @@
 			</div>
 		</div>
 
-		<!-- Positioned from the hovered tab, outside the tab list -->
+		<!-- Rendered outside the scrolling list so it is never clipped.
+		     The preview uses NcRichText, so it works without the Text app. -->
 		<div v-if="tooltip"
 			class="context-resource-tabs__tooltip"
 			role="tooltip"
-			:style="{ left: tooltip.left + 'px', top: tooltip.top + 'px' }">
+			:style="{ left: tooltip.left + 'px' }">
 			<span class="context-resource-tabs__tooltip-title">{{ tooltip.title }}</span>
-			<p v-if="tooltip.preview" class="context-resource-tabs__tooltip-preview">
-				{{ tooltip.preview }}
-			</p>
+			<div v-if="tooltip.preview"
+				ref="preview"
+				class="context-resource-tabs__tooltip-preview"
+				:class="{ 'context-resource-tabs__tooltip-preview--clipped': tooltip.clipped }">
+				<NcRichText :text="tooltip.preview"
+					:use-markdown="true"
+					:autolink="false"
+					:reference-limit="0" />
+			</div>
 		</div>
 
 		<Transition name="tabs-panel">
@@ -76,6 +84,9 @@
 						<Close :size="20" />
 					</button>
 				</div>
+
+				<!-- Rendered by the Text app; TableDescription falls back to a
+				     plain markdown rendering when that app is unavailable. -->
 				<TableDescription :key="activeResource.key"
 					class="context-resource-tabs__panel-text"
 					:description="activeResource.description"
@@ -89,11 +100,12 @@
 import TableDescription from './TableDescription.vue'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import Close from 'vue-material-design-icons/Close.vue'
+import { NcRichText } from '@nextcloud/vue'
 
 const TOOLTIP_DELAY = 400
 const TOOLTIP_MAX_WIDTH = 320
-const TOOLTIP_GAP = 4
-const PREVIEW_MAX_CHARS = 180
+const PREVIEW_MAX_CHARS = 500
+const PREVIEW_MAX_LINES = 8
 
 export default {
 	name: 'ContextResourceCards',
@@ -102,6 +114,7 @@ export default {
 		TableDescription,
 		InformationOutline,
 		Close,
+		NcRichText,
 	},
 
 	props: {
@@ -115,10 +128,7 @@ export default {
 		},
 	},
 
-	// `height-change`: the tab row wraps onto several lines when there are
-	// many resources, so its height varies. The parent uses it as the `top`
-	// offset of the table's sticky options bar.
-	emits: ['update:active-index', 'height-change'],
+	emits: ['update:active-index'],
 
 	data() {
 		return {
@@ -148,42 +158,15 @@ export default {
 			this.descriptionOpen = this.openAfterSwitch && this.hasDescription(this.activeResource)
 			this.openAfterSwitch = false
 			this.hideTooltip()
+			this.$nextTick(() => this.scrollActiveTabIntoView())
 		},
-	},
-
-	created() {
-		// Not reactive on purpose (a ResizeObserver must not be proxied).
-		this.resizeObserver = null
 	},
 
 	mounted() {
-		if (typeof ResizeObserver !== 'undefined') {
-			this.resizeObserver = new ResizeObserver(() => this.reportHeight())
-			this.resizeObserver.observe(this.$el)
-		}
-		this.reportHeight()
-	},
-
-	// Vue 2 and Vue 3 name this hook differently; stopObserving is idempotent.
-	beforeDestroy() {
-		this.stopObserving()
-	},
-
-	beforeUnmount() {
-		this.stopObserving()
+		this.scrollActiveTabIntoView()
 	},
 
 	methods: {
-		reportHeight() {
-			this.$emit('height-change', this.$el.offsetHeight)
-		},
-
-		stopObserving() {
-			this.resizeObserver?.disconnect()
-			this.resizeObserver = null
-			clearTimeout(this.tooltipTimer)
-		},
-
 		hasDescription(resource) {
 			const description = resource?.description
 			if (typeof description === 'string') {
@@ -214,18 +197,10 @@ export default {
 			})
 		},
 
-		// Short plain-text excerpt of the (markdown) description.
-		previewText(description) {
-			const text = String(description)
-				.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-				.replace(/https?:\/\/\S+/g, '')
-				.replace(/^\s*[-+*]\s+/gm, '')
-				.replace(/[`*_~>#|]/g, '')
-				.replace(/\s+/g, ' ')
-				.trim()
-			return text.length > PREVIEW_MAX_CHARS
-				? text.slice(0, PREVIEW_MAX_CHARS).trimEnd() + '…'
-				: text
+		// First lines of the raw markdown: the CSS decides how much is visible.
+		previewMarkdown(description) {
+			const lines = String(description).trim().split('\n').slice(0, PREVIEW_MAX_LINES)
+			return lines.join('\n').slice(0, PREVIEW_MAX_CHARS)
 		},
 
 		onTabFocus(event, index) {
@@ -254,14 +229,21 @@ export default {
 			this.tooltipTimer = setTimeout(() => {
 				const rootRect = this.$el.getBoundingClientRect()
 				const itemRect = item.getBoundingClientRect()
+				const left = Math.max(8, Math.min(itemRect.left - rootRect.left, rootRect.width - TOOLTIP_MAX_WIDTH - 8))
 				this.tooltip = {
-					// Physical coordinates on both sides, so RTL works too.
-					left: Math.max(8, Math.min(itemRect.left - rootRect.left, rootRect.width - TOOLTIP_MAX_WIDTH - 8)),
-					// Right under the hovered tab, whichever line it is on.
-					top: itemRect.bottom - rootRect.top + TOOLTIP_GAP,
+					left,
 					title: `${resource.emoji ? resource.emoji + ' ' : ''}${resource.title}`,
-					preview: described ? this.previewText(resource.description) : '',
+					preview: described ? this.previewMarkdown(resource.description) : '',
 				}
+
+				// Fade the bottom edge only when the preview is really cut
+				// off, so a short description is not faded for nothing.
+				this.$nextTick(() => requestAnimationFrame(() => {
+					const el = this.$refs.preview
+					if (this.tooltip && el && el.scrollHeight > el.clientHeight + 1) {
+						this.tooltip = { ...this.tooltip, clipped: true }
+					}
+				}))
 			}, immediate ? 0 : TOOLTIP_DELAY)
 		},
 
@@ -270,8 +252,8 @@ export default {
 			this.tooltip = null
 		},
 
-		// Arrow keys move focus (in DOM order, so line by line), Enter/Space
-		// select: browsing the tabs does not reload a table on every keypress.
+		// Arrow keys move focus, Enter/Space select (manual activation, so
+		// browsing the tabs does not reload a table on every keypress).
 		onKeydown(event) {
 			if (event.key === 'Escape') {
 				this.hideTooltip()
@@ -298,14 +280,16 @@ export default {
 			event.preventDefault()
 			tabs[next].focus()
 		},
+
+		scrollActiveTabIntoView() {
+			const active = this.$refs.list?.querySelector('[role="tab"][aria-selected="true"]')
+			active?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+		},
 	},
 }
 </script>
 
 <style scoped lang="scss">
-// One line of tabs = 47px + the 1px bottom border of the root = 48px.
-$tab-row-h: 47px;
-
 @mixin icon-button($size) {
 	appearance: none;
 	flex-shrink: 0;
@@ -338,9 +322,8 @@ $tab-row-h: 47px;
 }
 
 .context-resource-tabs {
-	// The height is not fixed: tabs wrap onto extra lines. It is reported to
-	// the parent (`height-change`) which exposes it as `--tbl-tabs-h`, the
-	// `top` of the table's sticky options bar.
+	// `--tbl-tabs-h` is defined once in Context.vue (on `.resources`) so the
+	// sticky options bar of the table below uses the very same value as `top`.
 	position: sticky;
 	top: 0;
 	inset-inline-start: 0; // stays in view when a wide table scrolls sideways
@@ -348,19 +331,24 @@ $tab-row-h: 47px;
 	// otherwise the description overlay is painted underneath them.
 	z-index: 100;
 	width: var(--app-content-width, 100%);
+	height: var(--tbl-tabs-h, 48px);
 	box-sizing: border-box;
 	background-color: var(--color-main-background);
 	border-bottom: 1px solid var(--color-border);
 
 	&__bar {
+		height: 100%;
 		padding-inline: 20px;
 		box-sizing: border-box;
 	}
 
 	&__list {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0 var(--default-grid-baseline, 4px);
+		height: 100%;
+		gap: var(--default-grid-baseline, 4px);
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: thin;
 	}
 
 	// One tab = the tab button + its (i) button, side by side (a button
@@ -369,7 +357,6 @@ $tab-row-h: 47px;
 		flex: 0 0 auto;
 		display: flex;
 		align-items: center;
-		height: $tab-row-h;
 		max-width: calc(65 * var(--default-grid-baseline, 4px));
 		box-sizing: border-box;
 		border-bottom: 3px solid transparent;
@@ -458,9 +445,10 @@ $tab-row-h: 47px;
 		@include icon-button(32px);
 	}
 
-	// Hover / focus tooltip: full title + short description preview.
+	// Hover / focus tooltip: full title + a faded teaser of the description.
 	&__tooltip {
 		position: absolute;
+		top: calc(100% + var(--default-grid-baseline, 4px));
 		z-index: 3;
 		box-sizing: border-box;
 		width: max-content;
@@ -479,15 +467,48 @@ $tab-row-h: 47px;
 		overflow-wrap: anywhere;
 	}
 
+	// Teaser: the first ~30px of the rendered markdown, fading out at the bottom.
 	&__tooltip-preview {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 4;
-		line-clamp: 4;
-		margin: var(--default-grid-baseline, 4px) 0 0;
+		margin-top: var(--default-grid-baseline, 4px);
+		max-height: 30px; // try 20px for a tighter teaser
 		overflow: hidden;
 		overflow-wrap: anywhere;
 		color: var(--color-text-maxcontrast);
+
+		&--clipped {
+			-webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
+			mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
+		}
+
+		// Compact markdown: no big headings or margins in a 30px window.
+		:deep(h1),
+		:deep(h2),
+		:deep(h3),
+		:deep(h4),
+		:deep(h5),
+		:deep(h6) {
+			margin: 0;
+			font-size: var(--default-font-size);
+			font-weight: bold;
+			color: var(--color-main-text);
+		}
+
+		:deep(p),
+		:deep(ul),
+		:deep(ol),
+		:deep(blockquote),
+		:deep(pre) {
+			margin: 0;
+		}
+
+		:deep(ul),
+		:deep(ol) {
+			padding-inline-start: calc(5 * var(--default-grid-baseline, 4px));
+		}
+
+		:deep(img) {
+			display: none;
+		}
 	}
 
 	// Overlays the table instead of pushing it, so the tab row keeps a
