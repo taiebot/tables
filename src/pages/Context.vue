@@ -35,14 +35,14 @@
 						:class="{ 'resources__stack-item--active': index === activeResourceIndex }">
 						<div v-if="!resource.isView" class="resource resource--card-mode">
 							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(false, resource)"
+								:view-setting="viewSettings[resource.key]" @create-column="createColumn(false, resource)"
 								@import-scheme="openImportSchemeModal(resource)"
 								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
 								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
 						</div>
 						<div v-else-if="resource.isView" class="resource resource--card-mode">
 							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(true, resource)"
+								:view-setting="viewSettings[resource.key]" @create-column="createColumn(true, resource)"
 								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
 								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
 						</div>
@@ -55,14 +55,14 @@
 					<div v-for="resource in contextResources" :key="resource.key">
 						<div v-if="!resource.isView" class="resource">
 							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(false, resource)"
+								:view-setting="viewSettings[resource.key]" @create-column="createColumn(false, resource)"
 								@import-scheme="openImportSchemeModal(resource)"
 								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
 								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
 						</div>
 						<div v-else-if="resource.isView" class="resource">
 							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSetting" @create-column="createColumn(true, resource)"
+								:view-setting="viewSettings[resource.key]" @create-column="createColumn(true, resource)"
 								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
 								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
 						</div>
@@ -115,7 +115,7 @@ export default {
 		return {
 			loading: true,
 			icon: null,
-			viewSetting: {},
+			viewSettings: {},
 			context: null,
 			contextResources: [],
 			errorMessage: null,
@@ -228,6 +228,7 @@ export default {
 			this.isReloading = true
 			this.loading = true
 			this.contextResources = []
+			this.viewSettings = {}
 			this.activeResourceIndex = 0
 
 			try {
@@ -277,6 +278,7 @@ export default {
 										})
 										table.key = (table.id).toString()
 										table.isView = false
+										this.viewSettings[table.key] = {}
 										this.contextResources.push(table)
 									}
 
@@ -296,6 +298,7 @@ export default {
 										})
 										view.key = 'view-' + (view.id).toString()
 										view.isView = true
+										this.viewSettings[view.key] = {}
 										this.contextResources.push(view)
 									}
 								}
@@ -419,7 +422,7 @@ export default {
 
 		&--active {
 			visibility: visible;
-			pointer-events: auto;contain: size;
+			pointer-events: auto;
 			overflow: visible;
 			contain: none;
 		}
