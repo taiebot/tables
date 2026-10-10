@@ -57,6 +57,7 @@
 		     TableDescription falls back to plain markdown. -->
 		<div v-if="tooltip"
 			class="context-resource-tabs__tooltip"
+			:class="{ 'context-resource-tabs__tooltip--wide': tooltip.preview }"
 			role="tooltip"
 			:style="{ left: tooltip.left + 'px', top: tooltip.top + 'px' }">
 			<span class="context-resource-tabs__tooltip-title">{{ tooltip.title }}</span>
@@ -103,6 +104,9 @@ import Close from 'vue-material-design-icons/Close.vue'
 const TOOLTIP_DELAY = 400
 const TOOLTIP_MAX_WIDTH = 480 // keep in sync with the CSS `max-width` of the tooltip
 const TOOLTIP_GAP = 4
+// The description panel is made taller than the visible area by this much, so
+// no gap shows at the bottom of the screen while the page is scrolling.
+const PANEL_OVERSHOOT = 200
 const PREVIEW_MAX_CHARS = 600
 const PREVIEW_MAX_LINES = 10
 
@@ -216,6 +220,7 @@ export default {
 			cancelAnimationFrame(this.panelFrame)
 			this.panelFrame = 0
 			this.$el?.style.removeProperty('--tbl-panel-h')
+			this.$el?.style.removeProperty('--tbl-panel-extra')
 		},
 
 		schedulePanelHeight() {
@@ -227,10 +232,13 @@ export default {
 			}
 		},
 
-		// From the bottom of the tab area down to the bottom of the screen.
+		// From the bottom of the tab area down to the bottom of the screen, plus
+		// an overshoot that stays off-screen (compensated by the panel padding).
 		updatePanelHeight() {
 			const bottom = this.$el.getBoundingClientRect().bottom
-			this.$el.style.setProperty('--tbl-panel-h', Math.max(160, window.innerHeight - bottom) + 'px')
+			const visible = Math.max(160, window.innerHeight - bottom)
+			this.$el.style.setProperty('--tbl-panel-h', (visible + PANEL_OVERSHOOT) + 'px')
+			this.$el.style.setProperty('--tbl-panel-extra', PANEL_OVERSHOOT + 'px')
 		},
 
 		hasDescription(resource) {
@@ -549,6 +557,13 @@ $tab-row-h: 47px;
 		border-radius: var(--border-radius-large, 12px);
 		box-shadow: 0 2px 8px var(--color-box-shadow, rgba(0, 0, 0, 0.2));
 		pointer-events: none;
+
+		// With a preview the tooltip gets its full width right away. Sized to
+		// its content it would only be as wide as the title, because the
+		// description is rendered asynchronously.
+		&--wide {
+			width: min(480px, calc(100vw - 32px)); // keep in sync with TOOLTIP_MAX_WIDTH
+		}
 	}
 
 	&__tooltip-title {
@@ -624,7 +639,11 @@ $tab-row-h: 47px;
 		height: var(--tbl-panel-h, 60vh);
 		overflow-x: hidden;
 		overflow-y: auto;
-		padding: calc(4 * var(--default-grid-baseline, 4px)) 20px calc(5 * var(--default-grid-baseline, 4px));
+		// Scrolling the description must not scroll the page behind it.
+		overscroll-behavior: contain;
+		// The bottom padding includes the off-screen overshoot, so the last
+		// lines of the description stay reachable.
+		padding: calc(4 * var(--default-grid-baseline, 4px)) 20px calc(5 * var(--default-grid-baseline, 4px) + var(--tbl-panel-extra, 0px));
 		background-color: var(--color-main-background);
 		border-bottom: 1px solid var(--color-border);
 		box-shadow: 0 6px 12px var(--color-box-shadow, rgba(0, 0, 0, 0.15));
