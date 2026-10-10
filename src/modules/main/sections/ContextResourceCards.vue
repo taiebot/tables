@@ -52,7 +52,9 @@
 		</div>
 
 		<!-- Rendered outside the scrolling list so it is never clipped.
-		     The preview uses NcRichText, so it works without the Text app. -->
+		     The teaser goes through TableDescription (Text editor, so rich
+		     content such as link previews is rendered); without the Text app
+		     TableDescription falls back to plain markdown. -->
 		<div v-if="tooltip"
 			class="context-resource-tabs__tooltip"
 			role="tooltip"
@@ -62,10 +64,7 @@
 				ref="preview"
 				class="context-resource-tabs__tooltip-preview"
 				:class="{ 'context-resource-tabs__tooltip-preview--clipped': tooltip.clipped }">
-				<NcRichText :text="tooltip.preview"
-					:use-markdown="true"
-					:autolink="false"
-					:reference-limit="0" />
+				<TableDescription :description="tooltip.preview" :read-only="true" />
 			</div>
 		</div>
 
@@ -100,12 +99,11 @@
 import TableDescription from './TableDescription.vue'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import Close from 'vue-material-design-icons/Close.vue'
-import { NcRichText } from '@nextcloud/vue'
 
 const TOOLTIP_DELAY = 400
 const TOOLTIP_MAX_WIDTH = 320
-const PREVIEW_MAX_CHARS = 500
-const PREVIEW_MAX_LINES = 8
+const PREVIEW_MAX_CHARS = 600
+const PREVIEW_MAX_LINES = 10
 
 export default {
 	name: 'ContextResourceCards',
@@ -114,7 +112,6 @@ export default {
 		TableDescription,
 		InformationOutline,
 		Close,
-		NcRichText,
 	},
 
 	props: {
@@ -162,8 +159,17 @@ export default {
 		},
 	},
 
+	created() {
+		// Not reactive on purpose.
+		this.clipObserver = null
+	},
+
 	mounted() {
 		this.scrollActiveTabIntoView()
+	},
+
+	beforeUnmount() {
+		this.hideTooltip()
 	},
 
 	methods: {
@@ -197,10 +203,21 @@ export default {
 			})
 		},
 
-		// First lines of the raw markdown: the CSS decides how much is visible.
+		// First lines of the raw markdown, cut on a line boundary so a link
+		// preview or list is not split in the middle. The CSS decides how
+		// much of it is actually visible.
 		previewMarkdown(description) {
-			const lines = String(description).trim().split('\n').slice(0, PREVIEW_MAX_LINES)
-			return lines.join('\n').slice(0, PREVIEW_MAX_CHARS)
+			const lines = String(description).trim().split('\n')
+			const kept = []
+			let size = 0
+			for (const line of lines) {
+				if (kept.length >= PREVIEW_MAX_LINES || size + line.length > PREVIEW_MAX_CHARS) {
+					break
+				}
+				kept.push(line)
+				size += line.length
+			}
+			return kept.length > 0 ? kept.join('\n') : (lines[0] || '').slice(0, PREVIEW_MAX_CHARS)
 		},
 
 		onTabFocus(event, index) {
@@ -236,20 +253,37 @@ export default {
 					preview: described ? this.previewMarkdown(resource.description) : '',
 				}
 
-				// Fade the bottom edge only when the preview is really cut
-				// off, so a short description is not faded for nothing.
-				this.$nextTick(() => requestAnimationFrame(() => {
-					const el = this.$refs.preview
-					if (this.tooltip && el && el.scrollHeight > el.clientHeight + 1) {
-						this.tooltip = { ...this.tooltip, clipped: true }
-					}
-				}))
+				this.$nextTick(() => this.watchPreviewClip())
 			}, immediate ? 0 : TOOLTIP_DELAY)
 		},
 
 		hideTooltip() {
 			clearTimeout(this.tooltipTimer)
+			this.clipObserver?.disconnect()
+			this.clipObserver = null
 			this.tooltip = null
+		},
+
+		// The editor renders asynchronously, so the content height is not
+		// known when the tooltip opens: re-check whenever the preview changes
+		// and fade the bottom edge only if the content is really cut off.
+		watchPreviewClip() {
+			this.clipObserver?.disconnect()
+			const el = this.$refs.preview
+			if (!el) {
+				return
+			}
+			const check = () => {
+				if (this.tooltip && !this.tooltip.clipped && el.scrollHeight > el.clientHeight + 1) {
+					this.tooltip = { ...this.tooltip, clipped: true }
+				}
+			}
+			if (typeof MutationObserver !== 'undefined') {
+				this.clipObserver = new MutationObserver(check)
+				this.clipObserver.observe(el, { childList: true, subtree: true, attributes: true })
+			}
+			check()
+			setTimeout(check, 600)
 		},
 
 		// Arrow keys move focus, Enter/Space select (manual activation, so
@@ -480,6 +514,19 @@ export default {
 			mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
 		}
 
+		// Neutralise the description's own layout (wide centred column,
+		// editor padding) so the teaser starts at the top-left.
+		:deep(.element-description) {
+			width: 100%;
+			max-width: 100%;
+			padding-inline: 0 !important;
+		}
+
+		:deep(.ProseMirror) {
+			margin: 0 !important;
+			padding: 0 !important;
+		}
+
 		// Compact markdown: no big headings or margins in a 30px window.
 		:deep(h1),
 		:deep(h2),
@@ -504,10 +551,6 @@ export default {
 		:deep(ul),
 		:deep(ol) {
 			padding-inline-start: calc(5 * var(--default-grid-baseline, 4px));
-		}
-
-		:deep(img) {
-			display: none;
 		}
 	}
 
