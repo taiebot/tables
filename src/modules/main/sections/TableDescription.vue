@@ -73,6 +73,7 @@ export default {
 		}
 	},
 	async beforeUnmount() {
+		this.isUnmounted = true
 		await this.destroyEditor()
 	},
 	methods: {
@@ -85,7 +86,7 @@ export default {
 				return
 			}
 			try {
-				this.editor = await window.OCA.Text.createEditor({
+				const editor = await window.OCA.Text.createEditor({
 					el: this.$refs.textEditor,
 					content: this.description,
 					readOnly: this.readOnly,
@@ -97,6 +98,13 @@ export default {
 						this.$emit('update:description', markdown)
 					},
 				})
+				if (this.isUnmounted) {
+					// Unmounted while the editor was loading (e.g. a short
+					// hover on a tab): do not leave it running.
+					editor?.destroy()
+					return
+				}
+				this.editor = editor
 			} catch (error) {
 				console.error('Could not load the Text editor, showing the plain description instead', error)
 				this.textEditorAvailable = false
