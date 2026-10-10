@@ -5,8 +5,7 @@
 <template>
 	<div class="context-resource-tabs">
 		<div class="context-resource-tabs__bar">
-			<div ref="list"
-				class="context-resource-tabs__list"
+			<div class="context-resource-tabs__list"
 				role="tablist"
 				:aria-label="t('tables', 'Application resources')"
 				@keydown="onKeydown">
@@ -51,14 +50,15 @@
 			</div>
 		</div>
 
-		<!-- Rendered outside the scrolling list so it is never clipped.
+		<!-- Positioned from the hovered tab (whichever row it is on) and
+		     rendered outside the tab list so it is never clipped.
 		     The teaser goes through TableDescription (Text editor, so rich
 		     content such as link previews is rendered); without the Text app
 		     TableDescription falls back to plain markdown. -->
 		<div v-if="tooltip"
 			class="context-resource-tabs__tooltip"
 			role="tooltip"
-			:style="{ left: tooltip.left + 'px' }">
+			:style="{ left: tooltip.left + 'px', top: tooltip.top + 'px' }">
 			<span class="context-resource-tabs__tooltip-title">{{ tooltip.title }}</span>
 			<div v-if="tooltip.preview"
 				ref="preview"
@@ -101,7 +101,8 @@ import InformationOutline from 'vue-material-design-icons/InformationOutline.vue
 import Close from 'vue-material-design-icons/Close.vue'
 
 const TOOLTIP_DELAY = 400
-const TOOLTIP_MAX_WIDTH = 320
+const TOOLTIP_MAX_WIDTH = 480 // keep in sync with the CSS `max-width` of the tooltip
+const TOOLTIP_GAP = 4
 const PREVIEW_MAX_CHARS = 600
 const PREVIEW_MAX_LINES = 10
 
@@ -155,24 +156,83 @@ export default {
 			this.descriptionOpen = this.openAfterSwitch && this.hasDescription(this.activeResource)
 			this.openAfterSwitch = false
 			this.hideTooltip()
-			this.$nextTick(() => this.scrollActiveTabIntoView())
+		},
+
+		// While the description is open it fills the screen below the tabs, so
+		// its height follows the window size and the scroll position.
+		descriptionOpen(open) {
+			if (open) {
+				this.startPanelSizing()
+			} else {
+				this.stopPanelSizing()
+			}
 		},
 	},
 
 	created() {
 		// Not reactive on purpose.
 		this.clipObserver = null
+		this.resizeObserver = null
+		this.panelFrame = 0
 	},
 
 	mounted() {
-		this.scrollActiveTabIntoView()
+		// Tabs wrap onto several rows, so the height of this block varies.
+		// Publish it as `--tbl-tabs-h` on the parent (`.resources`): the
+		// sticky options bar of the table below uses it as its `top`.
+		this.publishHeight()
+		if (typeof ResizeObserver !== 'undefined') {
+			this.resizeObserver = new ResizeObserver(() => this.publishHeight())
+			this.resizeObserver.observe(this.$el)
+		}
 	},
 
 	beforeUnmount() {
 		this.hideTooltip()
+		this.stopPanelSizing()
+		this.resizeObserver?.disconnect()
+		this.resizeObserver = null
+		this.$el.parentElement?.style.removeProperty('--tbl-tabs-h')
 	},
 
 	methods: {
+		publishHeight() {
+			this.$el.parentElement?.style.setProperty('--tbl-tabs-h', this.$el.offsetHeight + 'px')
+			if (this.descriptionOpen) {
+				this.updatePanelHeight()
+			}
+		},
+
+		startPanelSizing() {
+			this.updatePanelHeight()
+			window.addEventListener('resize', this.schedulePanelHeight)
+			// Capture: the scrolling element is an ancestor, not the window.
+			document.addEventListener('scroll', this.schedulePanelHeight, true)
+		},
+
+		stopPanelSizing() {
+			window.removeEventListener('resize', this.schedulePanelHeight)
+			document.removeEventListener('scroll', this.schedulePanelHeight, true)
+			cancelAnimationFrame(this.panelFrame)
+			this.panelFrame = 0
+			this.$el?.style.removeProperty('--tbl-panel-h')
+		},
+
+		schedulePanelHeight() {
+			if (!this.panelFrame) {
+				this.panelFrame = requestAnimationFrame(() => {
+					this.panelFrame = 0
+					this.updatePanelHeight()
+				})
+			}
+		},
+
+		// From the bottom of the tab area down to the bottom of the screen.
+		updatePanelHeight() {
+			const bottom = this.$el.getBoundingClientRect().bottom
+			this.$el.style.setProperty('--tbl-panel-h', Math.max(160, window.innerHeight - bottom) + 'px')
+		},
+
 		hasDescription(resource) {
 			const description = resource?.description
 			if (typeof description === 'string') {
@@ -249,6 +309,8 @@ export default {
 				const left = Math.max(8, Math.min(itemRect.left - rootRect.left, rootRect.width - TOOLTIP_MAX_WIDTH - 8))
 				this.tooltip = {
 					left,
+					// Right under the hovered tab, on whichever row it is.
+					top: itemRect.bottom - rootRect.top + TOOLTIP_GAP,
 					title: `${resource.emoji ? resource.emoji + ' ' : ''}${resource.title}`,
 					preview: described ? this.previewMarkdown(resource.description) : '',
 				}
@@ -314,16 +376,14 @@ export default {
 			event.preventDefault()
 			tabs[next].focus()
 		},
-
-		scrollActiveTabIntoView() {
-			const active = this.$refs.list?.querySelector('[role="tab"][aria-selected="true"]')
-			active?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-		},
 	},
 }
 </script>
 
 <style scoped lang="scss">
+// One row of tabs = 47px + the 1px bottom border of the root = 48px.
+$tab-row-h: 47px;
+
 @mixin icon-button($size) {
 	appearance: none;
 	flex-shrink: 0;
@@ -356,8 +416,9 @@ export default {
 }
 
 .context-resource-tabs {
-	// `--tbl-tabs-h` is defined once in Context.vue (on `.resources`) so the
-	// sticky options bar of the table below uses the very same value as `top`.
+	// The height is not fixed: tabs wrap onto extra rows. The component
+	// measures itself and publishes it as `--tbl-tabs-h` on its parent, the
+	// `top` of the table's sticky options bar (see Context.vue).
 	position: sticky;
 	top: 0;
 	inset-inline-start: 0; // stays in view when a wide table scrolls sideways
@@ -365,24 +426,19 @@ export default {
 	// otherwise the description overlay is painted underneath them.
 	z-index: 100;
 	width: var(--app-content-width, 100%);
-	height: var(--tbl-tabs-h, 48px);
 	box-sizing: border-box;
 	background-color: var(--color-main-background);
 	border-bottom: 1px solid var(--color-border);
 
 	&__bar {
-		height: 100%;
 		padding-inline: 20px;
 		box-sizing: border-box;
 	}
 
 	&__list {
 		display: flex;
-		height: 100%;
-		gap: var(--default-grid-baseline, 4px);
-		overflow-x: auto;
-		overflow-y: hidden;
-		scrollbar-width: thin;
+		flex-wrap: wrap; // every table stays visible, extra ones go to the next row
+		gap: 0 var(--default-grid-baseline, 4px);
 	}
 
 	// One tab = the tab button + its (i) button, side by side (a button
@@ -391,6 +447,7 @@ export default {
 		flex: 0 0 auto;
 		display: flex;
 		align-items: center;
+		height: $tab-row-h;
 		max-width: calc(65 * var(--default-grid-baseline, 4px));
 		box-sizing: border-box;
 		border-bottom: 3px solid transparent;
@@ -482,11 +539,10 @@ export default {
 	// Hover / focus tooltip: full title + a faded teaser of the description.
 	&__tooltip {
 		position: absolute;
-		top: calc(100% + var(--default-grid-baseline, 4px));
 		z-index: 3;
 		box-sizing: border-box;
 		width: max-content;
-		max-width: 320px;
+		max-width: min(480px, calc(100vw - 32px)); // keep in sync with TOOLTIP_MAX_WIDTH
 		padding: calc(2 * var(--default-grid-baseline, 4px)) calc(3 * var(--default-grid-baseline, 4px));
 		background-color: var(--color-main-background);
 		border: 1px solid var(--color-border);
@@ -501,17 +557,18 @@ export default {
 		overflow-wrap: anywhere;
 	}
 
-	// Teaser: the first ~30px of the rendered markdown, fading out at the bottom.
+	// Teaser: the first ~80px of the rendered markdown, fading out at the bottom.
 	&__tooltip-preview {
 		margin-top: var(--default-grid-baseline, 4px);
-		max-height: 30px; // try 20px for a tighter teaser
+		max-height: 80px;
 		overflow: hidden;
 		overflow-wrap: anywhere;
 		color: var(--color-text-maxcontrast);
 
+		// Fixed-length fade at the bottom edge (only set when the text is cut off).
 		&--clipped {
-			-webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
-			mask-image: linear-gradient(to bottom, #000 35%, transparent 100%);
+			-webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
+			mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
 		}
 
 		// Neutralise the description's own layout (wide centred column,
@@ -527,7 +584,7 @@ export default {
 			padding: 0 !important;
 		}
 
-		// Compact markdown: no big headings or margins in a 30px window.
+		// Compact markdown: no big headings or margins in a small window.
 		:deep(h1),
 		:deep(h2),
 		:deep(h3),
@@ -554,15 +611,17 @@ export default {
 		}
 	}
 
-	// Overlays the table instead of pushing it, so the tab row keeps a
-	// constant height and the table's sticky bar offset stays valid.
+	// Covers the whole area below the tabs (down to the bottom of the screen)
+	// instead of pushing the table, so the tab area keeps its height and the
+	// table's sticky bar offset stays valid. Its height is `--tbl-panel-h`,
+	// kept up to date by the script; 60vh is only the fallback.
 	&__panel {
 		position: absolute;
 		inset-inline: 0;
 		top: 100%;
 		z-index: 2;
 		box-sizing: border-box;
-		max-height: 60vh;
+		height: var(--tbl-panel-h, 60vh);
 		overflow-x: hidden;
 		overflow-y: auto;
 		padding: calc(4 * var(--default-grid-baseline, 4px)) 20px calc(5 * var(--default-grid-baseline, 4px));
