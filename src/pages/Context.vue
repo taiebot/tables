@@ -412,10 +412,16 @@ export default {
 		grid-area: 1 / 1;
 		visibility: hidden;
 		pointer-events: none;
+		// A hidden table must not stretch the page: it adds nothing to the
+		// size of the stack and its overflow is clipped.
+		overflow: hidden;
+		contain: size;
 
 		&--active {
 			visibility: visible;
-			pointer-events: auto;
+			pointer-events: auto;contain: size;
+			overflow: visible;
+			contain: none;
 		}
 	}
 }
