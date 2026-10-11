@@ -49,7 +49,7 @@
 					{{ t('tables', 'Show resources as tabs') }}
 				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
-					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
+					{{ t('tables', 'Display each table or view in a tab instead of one long stacked page.') }}
 				</p>
 			</div>
 			<div class="row space-T">
