@@ -29,8 +29,8 @@ class Version2301Date20260930000000 extends SimpleMigrationStep {
 
 		$contexts = $schema->getTable('tables_contexts_context');
 
-		if (!$contexts->hasColumn('card_view_enabled')) {
-			$contexts->addColumn('card_view_enabled', Types::BOOLEAN, [
+		if (!$contexts->hasColumn('tab_view_enabled')) {
+			$contexts->addColumn('tab_view_enabled', Types::BOOLEAN, [
 				'notnull' => false,
 				'default' => false,
 				'comment' => 'Show the application resources as tabs instead of stacked',
