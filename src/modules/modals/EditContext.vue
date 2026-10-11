@@ -45,8 +45,8 @@
 				</p>
 			</div>
 			<div class="row space-T">
-				<NcCheckboxRadioSwitch :model-value="cardViewEnabled" @update:model-value="changeCardView">
-					{{ t('tables', 'Show resources as cards') }}
+				<NcCheckboxRadioSwitch :model-value="tabViewEnabled" @update:model-value="changeTabView">
+					{{ t('tables', 'Show resources as tabs') }}
 				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
@@ -131,7 +131,7 @@ export default {
 			PERMISSION_DELETE,
 			prepareDeleteContext: false,
 			showInNavigationDefault: false,
-			cardViewEnabled: false,
+			tabViewEnabled: false,
 		}
 	},
 	computed: {
@@ -156,7 +156,7 @@ export default {
 				this.resources = context ? this.getContextResources(context) : []
 				this.receivers = context ? this.getContextReceivers(context) : []
 				this.showInNavigationDefault = this.getNavDisplay(context)
-				this.cardViewEnabled = !!context.cardViewEnabled
+				this.tabViewEnabled = !!context.tabViewEnabled
 			}
 		},
 	},
@@ -187,7 +187,7 @@ export default {
 					iconName: this.icon.name,
 					description: this.description,
 					nodes: dataResources,
-					cardViewEnabled: this.cardViewEnabled,
+					tabViewEnabled: this.tabViewEnabled,
 				}
 				const context = this.getContext(this.contextId)
 				// adding share to oneself to have navigation display control
@@ -217,7 +217,7 @@ export default {
 			this.receivers = context ? this.getContextReceivers(context) : []
 			this.prepareDeleteContext = false
 			this.showInNavigationDefault = this.getNavDisplay(context)
-			this.cardViewEnabled = !!context?.cardViewEnabled
+			this.tabViewEnabled = !!context?.tabViewEnabled
 		},
 		getNavDisplay(context) {
 			const shares = Object.keys(context.sharing || {})
@@ -297,8 +297,8 @@ export default {
 		changeDisplayMode() {
 			this.showInNavigationDefault = !this.showInNavigationDefault
 		},
-		changeCardView() {
-			this.cardViewEnabled = !this.cardViewEnabled
+		changeTabView() {
+			this.tabViewEnabled = !this.tabViewEnabled
 		},
 		actionTransfer() {
 			emit('tables:context:edit', null)

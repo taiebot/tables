@@ -53,8 +53,8 @@
 				</p>
 			</div>
 			<div class="row space-T">
-				<NcCheckboxRadioSwitch :model-value="cardViewEnabled" @update:model-value="changeCardView">
-					{{ t('tables', 'Show resources as cards') }}
+				<NcCheckboxRadioSwitch :model-value="tabViewEnabled" @update:model-value="changeTabView">
+					{{ t('tables', 'Show resources as tabs') }}
 				</NcCheckboxRadioSwitch>
 				<p class="nav-display-subtext">
 					{{ t('tables', 'Display each table or view as a selectable card instead of one long stacked page.') }}
@@ -117,7 +117,7 @@ export default {
 			resources: [],
 			receivers: [],
 			showInNavigationDefault: false,
-			cardViewEnabled: false,
+			tabViewEnabled: false,
 		}
 	},
 	watch: {
@@ -178,7 +178,7 @@ export default {
 				iconName: this.icon.name,
 				description: this.description,
 				nodes: dataResources,
-				cardViewEnabled: this.cardViewEnabled,
+				tabViewEnabled: this.tabViewEnabled,
 			}
 			// adding share to oneself to have navigation display control
 			this.receivers.push(
@@ -200,8 +200,8 @@ export default {
 		changeDisplayMode() {
 			this.showInNavigationDefault = !this.showInNavigationDefault
 		},
-		changeCardView() {
-			this.cardViewEnabled = !this.cardViewEnabled
+		changeTabView() {
+			this.tabViewEnabled = !this.tabViewEnabled
 		},	
 		reset() {
 			this.title = ''
@@ -209,7 +209,7 @@ export default {
 			this.setIcon(this.randomIcon())
 			this.customTitleChosen = false
 			this.showInNavigationDefault = false
-			this.cardViewEnabled = false
+			this.tabViewEnabled = false
 		},
 	},
 }

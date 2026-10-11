@@ -111,7 +111,7 @@ const PREVIEW_MAX_CHARS = 600
 const PREVIEW_MAX_LINES = 10
 
 export default {
-	name: 'ContextResourceCards',
+	name: 'ContextResourceTabs',
 
 	components: {
 		TableDescription,

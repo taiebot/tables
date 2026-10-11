@@ -21,8 +21,8 @@ use JsonSerializable;
  * @method setOwnerId(string $value): void
  * @method getOwnerType(): int
  * @method setOwnerType(int $value): void
- * @method getCardViewEnabled(): ?bool
- * @method setCardViewEnabled(?bool $value): void
+ * @method getTabViewEnabled(): ?bool
+ * @method setTabViewEnabled(?bool $value): void
  *
  * @method getSharing(): array
  * @method setSharing(array $value): void
@@ -37,7 +37,7 @@ class Context extends EntitySuper implements JsonSerializable {
 	protected ?string $description = null;
 	protected ?string $ownerId = null;
 	protected ?int $ownerType = null;
-	protected ?bool $cardViewEnabled = null;
+	protected ?bool $tabViewEnabled = null;
 
 	// virtual properties
 	protected ?array $sharing = null;
@@ -49,7 +49,7 @@ class Context extends EntitySuper implements JsonSerializable {
 	public function __construct() {
 		$this->addType('id', 'integer');
 		$this->addType('owner_type', 'integer');
-		$this->addType('cardViewEnabled', 'boolean');
+		$this->addType('tabViewEnabled', 'boolean');
 	}
 
 	public function jsonSerialize(): array {
@@ -61,7 +61,7 @@ class Context extends EntitySuper implements JsonSerializable {
 			'description' => $this->getDescription(),
 			'owner' => $this->getOwnerId(),
 			'ownerType' => $this->getOwnerType(),
-			'cardViewEnabled' => (bool)$this->getCardViewEnabled(),
+			'tabViewEnabled' => (bool)$this->getTabViewEnabled(),
 		];
 
 		// extended data

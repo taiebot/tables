@@ -20,15 +20,15 @@
 			</div>
 
 			<div class="resources">
-				<ContextResourceCards v-if="layoutMode === 'cards' && contextResources.length > 1"
+				<ContextResourceTabs v-if="layoutMode === 'tabs' && contextResources.length > 1"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
 					@update:active-index="index => activeResourceIndex = index" />
 
-				<!-- Cards mode: one resource visible at a time, all overlaid in
+				<!-- Tabs mode: one resource visible at a time, all overlaid in
 				     the same grid cell so switching never changes the
 				     container's height (prevents the scroll jump). -->
-				<div v-if="layoutMode === 'cards'" class="resources__stack">
+				<div v-if="layoutMode === 'tabs'" class="resources__stack">
 					<div v-for="(resource, index) in contextResources"
 						:key="resource.key"
 						class="resources__stack-item"
@@ -83,7 +83,7 @@ import { mapState, mapActions, storeToRefs } from 'pinia'
 import { NcIconSvgWrapper } from '@nextcloud/vue'
 import TableWrapper from '../modules/main/sections/TableWrapper.vue'
 import CustomView from '../modules/main/sections/View.vue'
-import ContextResourceCards from '../modules/main/sections/ContextResourceCards.vue'
+import ContextResourceTabs from '../modules/main/sections/ContextResourceTabs.vue'
 import { emit } from '@nextcloud/event-bus'
 import { NODE_TYPE_TABLE, NODE_TYPE_VIEW } from '../shared/constants.ts'
 import exportTableMixin from '../shared/components/ncTable/mixins/exportTableMixin.js'
@@ -101,7 +101,7 @@ export default {
 		ErrorMessage,
 		TableWrapper,
 		CustomView,
-		ContextResourceCards,
+		ContextResourceTabs,
 	},
 
 	mixins: [exportTableMixin, svgHelper],
@@ -127,15 +127,15 @@ export default {
 
 	computed: {
 		...mapState(useTablesStore, ['tables', 'contexts', 'activeContextId', 'views', 'activeContext']),
-		// 'cards' (a card picker on top, one resource shown at a time) only
+		// 'tabs' (a card picker on top, one resource shown at a time) only
 		// when the application was created/edited with the card-view option
 		// enabled AND there's more than one resource; otherwise everything is
 		// just stacked one below the other, same as before this feature.
 		layoutMode() {
-			if (!this.activeContext?.cardViewEnabled) {
+			if (!this.activeContext?.tabViewEnabled) {
 				return 'stacked'
 			}
-			return this.contextResources.length > 1 ? 'cards' : 'stacked'
+			return this.contextResources.length > 1 ? 'tabs' : 'stacked'
 		},
 		rows() {
 			const rows = {}

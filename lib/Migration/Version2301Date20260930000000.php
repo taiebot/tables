@@ -33,7 +33,7 @@ class Version2301Date20260930000000 extends SimpleMigrationStep {
 			$contexts->addColumn('card_view_enabled', Types::BOOLEAN, [
 				'notnull' => false,
 				'default' => false,
-				'comment' => 'Show the application resources as cards instead of stacked',
+				'comment' => 'Show the application resources as tabs instead of stacked',
 			]);
 		}
 
