@@ -84,7 +84,7 @@ class ContextMapper extends QBMapper {
 			'description' => $rows[0]['description'],
 			'owner_id' => $rows[0]['owner_id'],
 			'owner_type' => $rows[0]['owner_type'],
-			'card_view_enabled' => $rows[0]['card_view_enabled'] ?? null,
+			'tab_view_enabled' => $rows[0]['tab_view_enabled'] ?? null,
 		];
 
 		$formatted['sharing'] = array_reduce($rows, function (array $carry, array $item) use ($userId) {
