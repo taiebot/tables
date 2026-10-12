@@ -25,6 +25,8 @@
 							'context-resource-tabs__tab--with-info': hasDescription(resource),
 						}"
 						:aria-selected="index === activeIndex ? 'true' : 'false'"
+						:aria-controls="`context-resource-panel-${resource.key}`"
+						:aria-describedby="tooltip?.index === index ? TOOLTIP_ID : undefined"
 						:tabindex="index === activeIndex ? 0 : -1"
 						@focus="onTabFocus($event, index)"
 						@blur="hideTooltip"
@@ -42,7 +44,7 @@
 						:tabindex="index === activeIndex ? 0 : -1"
 						:aria-label="descriptionOpen && index === activeIndex ? t('tables', 'Hide description') : t('tables', 'Show description')"
 						:aria-expanded="index === activeIndex ? (descriptionOpen ? 'true' : 'false') : undefined"
-						:aria-controls="index === activeIndex ? 'context-resource-description' : undefined"
+						:aria-controls="index === activeIndex && descriptionOpen ? PANEL_ID : undefined"
 						@click.stop="toggleDescription(index)">
 						<InformationOutline :size="16" />
 					</button>
@@ -56,6 +58,7 @@
 		     content such as link previews is rendered); without the Text app
 		     TableDescription falls back to plain markdown. -->
 		<div v-if="tooltip"
+			:id="TOOLTIP_ID"
 			class="context-resource-tabs__tooltip"
 			:class="{ 'context-resource-tabs__tooltip--wide': tooltip.preview }"
 			role="tooltip"
@@ -71,7 +74,7 @@
 
 		<Transition name="tabs-panel">
 			<div v-if="descriptionOpen && activeHasDescription"
-				id="context-resource-description"
+				:id="PANEL_ID"
 				class="context-resource-tabs__panel">
 				<div class="context-resource-tabs__panel-header">
 					<h3 class="context-resource-tabs__panel-title">
@@ -101,6 +104,8 @@ import TableDescription from './TableDescription.vue'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import Close from 'vue-material-design-icons/Close.vue'
 
+const TOOLTIP_ID = 'context-resource-tooltip'
+const PANEL_ID = 'context-resource-description'
 const TOOLTIP_DELAY = 400
 const TOOLTIP_MAX_WIDTH = 480 // keep in sync with the CSS `max-width` of the tooltip
 const TOOLTIP_GAP = 4
@@ -134,6 +139,8 @@ export default {
 
 	data() {
 		return {
+			TOOLTIP_ID,
+			PANEL_ID,
 			// The description is always the one of the active resource, so a
 			// single flag is enough.
 			descriptionOpen: false,
@@ -141,7 +148,6 @@ export default {
 			// opens once the table below has switched to that tab.
 			openAfterSwitch: false,
 			tooltip: null,
-			tooltipTimer: null,
 		}
 	},
 
@@ -162,6 +168,14 @@ export default {
 			this.hideTooltip()
 		},
 
+		// The active resource lost its description (e.g. after a reload):
+		// close the panel so its listeners are released.
+		activeHasDescription(has) {
+			if (!has) {
+				this.descriptionOpen = false
+			}
+		},
+
 		// While the description is open it fills the screen below the tabs, so
 		// its height follows the window size and the scroll position.
 		descriptionOpen(open) {
@@ -178,6 +192,8 @@ export default {
 		this.clipObserver = null
 		this.resizeObserver = null
 		this.panelFrame = 0
+		this.tooltipTimer = null
+		this.clipTimer = null
 	},
 
 	mounted() {
@@ -316,6 +332,7 @@ export default {
 				const itemRect = item.getBoundingClientRect()
 				const left = Math.max(8, Math.min(itemRect.left - rootRect.left, rootRect.width - TOOLTIP_MAX_WIDTH - 8))
 				this.tooltip = {
+					index,
 					left,
 					// Right under the hovered tab, on whichever row it is.
 					top: itemRect.bottom - rootRect.top + TOOLTIP_GAP,
@@ -329,6 +346,7 @@ export default {
 
 		hideTooltip() {
 			clearTimeout(this.tooltipTimer)
+			clearTimeout(this.clipTimer)
 			this.clipObserver?.disconnect()
 			this.clipObserver = null
 			this.tooltip = null
@@ -339,6 +357,7 @@ export default {
 		// and fade the bottom edge only if the content is really cut off.
 		watchPreviewClip() {
 			this.clipObserver?.disconnect()
+			clearTimeout(this.clipTimer)
 			const el = this.$refs.preview
 			if (!el) {
 				return
@@ -353,21 +372,28 @@ export default {
 				this.clipObserver.observe(el, { childList: true, subtree: true, attributes: true })
 			}
 			check()
-			setTimeout(check, 600)
+			this.clipTimer = setTimeout(check, 600)
 		},
 
 		// Arrow keys move focus, Enter/Space select (manual activation, so
 		// browsing the tabs does not reload a table on every keypress).
+		// Escape closes the tooltip first, then the description panel.
 		onKeydown(event) {
 			if (event.key === 'Escape') {
-				this.hideTooltip()
+				if (this.tooltip) {
+					this.hideTooltip()
+				} else if (this.descriptionOpen) {
+					this.descriptionOpen = false
+				}
 				return
 			}
 			if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
 				return
 			}
+			// Works from the tab button as well as from its (i) button.
 			const tabs = [...event.currentTarget.querySelectorAll('[role="tab"]')]
-			const current = tabs.indexOf(event.target.closest('[role="tab"]'))
+			const currentItem = event.target.closest('.context-resource-tabs__item')
+			const current = tabs.indexOf(currentItem?.querySelector('[role="tab"]'))
 			if (current === -1) {
 				return
 			}
@@ -391,6 +417,7 @@ export default {
 <style scoped lang="scss">
 // One row of tabs = 47px + the 1px bottom border of the root = 48px.
 $tab-row-h: 47px;
+$anim-quick: var(--animation-quick, 100ms);
 
 @mixin icon-button($size) {
 	appearance: none;
@@ -406,7 +433,7 @@ $tab-row-h: 47px;
 	background: transparent;
 	border: none;
 	border-radius: 50%;
-	transition: color var(--animation-quick, 100ms) ease, background-color var(--animation-quick, 100ms) ease;
+	transition: color $anim-quick ease, background-color $anim-quick ease;
 
 	&:hover {
 		color: var(--color-main-text);
@@ -459,7 +486,7 @@ $tab-row-h: 47px;
 		max-width: calc(65 * var(--default-grid-baseline, 4px));
 		box-sizing: border-box;
 		border-bottom: 3px solid transparent;
-		transition: border-color var(--animation-quick, 100ms) ease;
+		transition: border-color $anim-quick ease;
 
 		&:hover {
 			border-bottom-color: var(--color-border-maxcontrast);
@@ -488,7 +515,7 @@ $tab-row-h: 47px;
 		background: transparent;
 		border: none;
 		border-radius: 0;
-		transition: color var(--animation-quick, 100ms) ease;
+		transition: color $anim-quick ease;
 
 		&--with-info {
 			padding-inline-end: var(--default-grid-baseline, 4px);
@@ -675,11 +702,10 @@ $tab-row-h: 47px;
 
 .tabs-panel-enter-active,
 .tabs-panel-leave-active {
-	transition: opacity var(--animation-quick, 150ms) ease, transform var(--animation-quick, 150ms) ease;
+	transition: opacity $anim-quick ease, transform $anim-quick ease;
 }
 
 .tabs-panel-enter-from,
-.tabs-panel-enter,
 .tabs-panel-leave-to {
 	opacity: 0;
 	transform: translateY(-4px);
