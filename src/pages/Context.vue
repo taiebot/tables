@@ -417,9 +417,6 @@ export default {
 	// The description is shown by the tabs' "i" panel, not inside the resource.
 	&--tab-mode {
 		margin-top: 0;
-		// NcTable pins its sticky options bar under a 60px title (its default
-		// `--tbl-sticky-top`): here it must sit right under the tab bar.
-		--tbl-sticky-top: var(--tbl-tabs-h);
 
 		&:deep(.element-description) {
 			display: none;
@@ -441,6 +438,11 @@ export default {
 	> div > .row.first-row,
 	.row.space-T {
 		display: none !important;
+	}
+
+	// NcTable assumes a 60px title above its sticky bar: pin it under the tabs.
+	.options.row {
+		top: var(--tbl-tabs-h) !important;
 	}
 }
 </style>
