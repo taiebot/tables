@@ -19,55 +19,43 @@
 				</div>
 			</div>
 
-			<div class="resources">
-				<ContextResourceTabs v-if="layoutMode === 'tabs' && contextResources.length > 1"
+			<div class="resources" :class="{ 'resources--tabs': isTabs }">
+				<ContextResourceTabs v-if="isTabs"
 					:resources="contextResources"
 					:active-index="activeResourceIndex"
 					@update:active-index="index => activeResourceIndex = index" />
 
-				<!-- Tabs mode: one resource visible at a time, all overlaid in
-				     the same grid cell so switching never changes the
-				     container's height (prevents the scroll jump). -->
-				<div v-if="layoutMode === 'tabs'" class="resources__stack">
-					<div v-for="(resource, index) in contextResources"
-						:key="resource.key"
-						class="resources__stack-item"
-						:class="{ 'resources__stack-item--active': index === activeResourceIndex }">
-						<div v-if="!resource.isView" class="resource resource--card-mode">
-							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSettings[resource.key]" @create-column="createColumn(false, resource)"
-								@import-scheme="openImportSchemeModal(resource)"
-								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
-						</div>
-						<div v-else-if="resource.isView" class="resource resource--card-mode">
-							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSettings[resource.key]" @create-column="createColumn(true, resource)"
-								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
-						</div>
-					</div>
+				<!-- Stacked mode: every resource is shown, one below the other.
+				     Tabs mode: only the active one is shown. The others stay
+				     mounted (v-show) so their state (filters, sorting) is kept. -->
+				<div v-for="(resource, index) in contextResources"
+					v-show="!isTabs || index === activeResourceIndex"
+					:id="isTabs ? `context-resource-panel-${resource.key}` : undefined"
+					:key="resource.key"
+					:role="isTabs ? 'tabpanel' : undefined"
+					:aria-labelledby="isTabs ? `context-resource-tab-${resource.key}` : undefined"
+					class="resource"
+					:class="{ 'resource--tab-mode': isTabs }">
+					<CustomView v-if="resource.isView"
+						:view="resource"
+						:columns="columns[resource.key]"
+						:rows="rows[resource.key]"
+						:view-setting="viewSettings[resource.key]"
+						@create-column="createColumn(true, resource)"
+						@import="openImportModal(resource, true)"
+						@download-csv="downloadCSV(resource, true)"
+						@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
+					<TableWrapper v-else
+						:table="resource"
+						:columns="columns[resource.key]"
+						:rows="rows[resource.key]"
+						:view-setting="viewSettings[resource.key]"
+						@create-column="createColumn(false, resource)"
+						@import-scheme="openImportSchemeModal(resource)"
+						@import="openImportModal(resource, false)"
+						@download-csv="downloadCSV(resource, false)"
+						@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
 				</div>
-
-				<!-- Stacked mode: every resource shown normally, one after
-				     the other, exactly like before this feature existed. -->
-				<template v-else>
-					<div v-for="resource in contextResources" :key="resource.key">
-						<div v-if="!resource.isView" class="resource">
-							<TableWrapper :table="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSettings[resource.key]" @create-column="createColumn(false, resource)"
-								@import-scheme="openImportSchemeModal(resource)"
-								@import="openImportModal(resource, false)" @download-csv="downloadCSV(resource, false)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, false)" />
-						</div>
-						<div v-else-if="resource.isView" class="resource">
-							<CustomView :view="resource" :columns="columns[resource.key]" :rows="rows[resource.key]"
-								:view-setting="viewSettings[resource.key]" @create-column="createColumn(true, resource)"
-								@import="openImportModal(resource, true)" @download-csv="downloadCSV(resource, true)"
-								@download-filtered-csv="rows => downloadFilteredCSV(rows, resource, true)" />
-						</div>
-					</div>
-				</template>
 			</div>
 		</div>
 
@@ -127,16 +115,15 @@ export default {
 
 	computed: {
 		...mapState(useTablesStore, ['tables', 'contexts', 'activeContextId', 'views', 'activeContext']),
-		// 'tabs' (a card picker on top, one resource shown at a time) only
-		// when the application was created/edited with the card-view option
-		// enabled AND there's more than one resource; otherwise everything is
-		// just stacked one below the other, same as before this feature.
-		layoutMode() {
-			if (!this.activeContext?.tabViewEnabled) {
-				return 'stacked'
-			}
-			return this.contextResources.length > 1 ? 'tabs' : 'stacked'
+
+		// 'tabs' (a tab bar on top, one resource shown at a time) only when
+		// the application was created/edited with the tab-view option enabled
+		// AND there's more than one resource; otherwise everything is just
+		// stacked one below the other.
+		isTabs() {
+			return !!this.activeContext?.tabViewEnabled && this.contextResources.length > 1
 		},
+
 		rows() {
 			const rows = {}
 			if (this.context && this.context.nodes) {
@@ -195,7 +182,7 @@ export default {
 			immediate: true,
 		},
 		contextResources() {
-			// Keep the active card in range (e.g. after switching to a context
+			// Keep the active tab in range (e.g. after switching to a context
 			// with fewer resources, or once resources finish loading).
 			if (this.activeResourceIndex >= this.contextResources.length) {
 				this.activeResourceIndex = 0
@@ -242,8 +229,6 @@ export default {
 				}
 
 				this.loadedSignature = this.contextSignature()
-
-				this.icon = await this.getContextIcon(this.activeContext.iconName)
 
 				this.icon = await this.getContextIcon(this.activeContext.iconName)
 
@@ -407,26 +392,16 @@ export default {
 	min-width: var(--app-content-width, 100%);
 }
 
-.resources__stack {
-	display: grid;
+.resources {
+	// Height of the tab bar (a single row, see ContextResourceTabs): also the
+	// offset of the table's sticky options bar.
+	--tbl-tabs-h: 48px;
+}
+
+// Switching tabs changes the height of the page: do not let the browser
+// "anchor" the scroll position on an element of the previous tab.
+.resources--tabs {
 	overflow-anchor: none;
-
-	&-item {
-		grid-area: 1 / 1;
-		visibility: hidden;
-		pointer-events: none;
-		// A hidden table must not stretch the page: it adds nothing to the
-		// size of the stack and its overflow is clipped.
-		overflow: hidden;
-		contain: size;
-
-		&--active {
-			visibility: visible;
-			pointer-events: auto;
-			overflow: visible;
-			contain: none;
-		}
-	}
 }
 
 .resource {
@@ -440,7 +415,12 @@ export default {
 	}
 
 	// The description is shown by the tabs' "i" panel, not inside the resource.
-	&--card-mode {
+	&--tab-mode {
+		margin-top: 0;
+		// NcTable pins its sticky options bar under a 60px title (its default
+		// `--tbl-sticky-top`): here it must sit right under the tab bar.
+		--tbl-sticky-top: var(--tbl-tabs-h);
+
 		&:deep(.element-description) {
 			display: none;
 		}
@@ -454,25 +434,13 @@ export default {
 </style>
 
 <!-- Not scoped on purpose: these rules target elements rendered by child
-     components (TableWrapper / View / NcTable). Same selectors as tested live. -->
+     components (TableWrapper / View). -->
 <style lang="scss">
-.resources {
-	// One value for the tab row height and the table's sticky bar offset.
-	--tbl-tabs-h: 48px;
-}
-
-.resource.resource--card-mode {
-	margin-top: 0 !important;
-
+.resource.resource--tab-mode {
 	// The active tab already names the table.
 	> div > .row.first-row,
 	.row.space-T {
 		display: none !important;
-	}
-
-	// NcTable assumes a 60px title above its sticky bar: pin it under the tabs.
-	.options.row {
-		top: var(--tbl-tabs-h, 48px) !important;
 	}
 }
 </style>
